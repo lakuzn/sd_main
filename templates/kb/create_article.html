@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section aria-labelledby="article_create" class="section">
+    <div class="section__content">
+        <div class="content__child">
+            <a href="{{ url_for('kb.catalog') }}" class="content__back button button--solid"
+                title="Вернуться ко всем заявкам"></a>
+            <div class="content__info">
+                <h1 id="article_create" class="h1 content__title">Создание статьи для Базы Знаний</h1>
+            </div>
+        </div>
+
+        <form method="POST" action="" class="article-form">
+            {{ form.hidden_tag() }}
+
+            <div class="article-form__group">
+                <label class="article-form__label" for="title">Заголовок статьи</label>
+                <input id="title" name="title" placeholder="Введите содержательный заголовок" type="text"
+                    aria-required="true" required class="button button--outline button--md">
+            </div>
+
+            <!-- Начало. Категории -->
+            <input type="hidden" name="category_id" id="category_id">
+
+            <div class="dropdown-relative">
+                <label class="article-form__label">Категория</label>
+                <button id="articleCategory" type="button" aria-haspopup="listbox" aria-expanded="false"
+                    aria-label="Выбрать категорию" class="article-category__button button button--md button--outline">
+                    ПО и Доступы
+                </button>
+
+                <div class="dropdown dropdown-article__category" style="display: none;">
+                    <ul id="articleCategoryList" role="listbox" aria-label="Список категорий" class="dropdown-list">
+                    </ul>
+                </div>
+            </div>
+            <!-- Конец. Категории -->
+
+            <textarea id="hidden-content" name="content" aria-required="true" required style="display: none"></textarea>
+
+            <div class="article-form__richtext">
+                <div id="editor-container"></div>
+            </div>
+
+            <div class="article-form__checkbox">
+                <label class="article-form__label" for="is_staff_only">Только для сотрудников</label>
+                <input id="is_staff_only" name="is_staff_only" type="checkbox"
+                    class="button button--outline button--md">
+            </div>
+
+            <button type="submit" id="submit-btn" class="article-form__button button button--solid button--md">
+                Опубликовать статью
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/quill.min.js') }}"></script>
+
+<script>
+    // Инициализируем редактор
+    const quill = new Quill('#editor-container', {
+        theme: 'snow', // Включаем светлую тему
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }], // Заголовки (H1, H2, H3, Обычный текст)
+                ['bold', 'italic', 'underline', 'strike'], // Форматирование текста
+                [{ 'color': [] }, { 'background': [] }], // Выбор цвета текста и фона
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }], // Нумерованные и маркированные списки
+                [{ 'align': [] }], // Выравнивание
+                ['link', 'image'], // Вставка ссылок и картинок
+                ['clean'] // Кнопка "Очистить форматирование"
+            ]
+        }
+    });
+
+    const hiddenInput = document.getElementById('hidden-content');
+
+    if (hiddenInput.value) {
+        quill.root.innerHTML = hiddenInput.value;
+    }
+
+    quill.on('text-change', function () {
+        hiddenInput.value = quill.getSemanticHTML();
+    });
+
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            const html = quill.getSemanticHTML();
+
+            if (html === '<p></p>') {
+                hiddenInput.value = '';
+            } else {
+                hiddenInput.value = html;
+            }
+        });
+    }
+</script>
+{% endblock %}

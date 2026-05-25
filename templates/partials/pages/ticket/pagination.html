@@ -1,0 +1,62 @@
+{% if pagination.pages > 1 %}
+
+{% set clean_args = request.args.copy() %}
+{% set _ = clean_args.pop('page', None) %}
+
+<ul class="pagination">
+    <li>
+        {% if pagination.has_prev %}
+        <a href="{{url_for(request.endpoint, page=pagination.prev_num, **clean_args)}}"
+            class="pagination__arrow pagination__arrow--prev" title="Предыдущая страница"></a>
+        {% else %}
+        <span class="pagination__arrow pagination__arrow--prev pagination__arrow--disabled"></span>
+        {% endif %}
+    </li>
+
+    {% for page_num in pagination.iter_pages(left_edge=1,right_edge=1, left_current=2, right_current=2) %}
+
+    {% if page_num %}
+    {% if pagination.page == page_num %}
+    <li>
+        <span class="pagination__page active">{{ page_num }}</span>
+    </li>
+    {% else %}
+    <li>
+        <a href="{{url_for(request.endpoint, page=page_num, **clean_args)}}" class="button pagination__page">
+            {{ page_num }}
+        </a>
+    </li>
+    {% endif %}
+    {% else %}
+    <li>
+        <span class="pagination__page">...</span>
+    </li>
+    {% endif %}
+    {% endfor %}
+
+    <li>
+        {% if pagination.has_next %}
+        <a href="{{url_for(request.endpoint, page=pagination.next_num, **clean_args)}}"
+            class="pagination__arrow pagination__arrow--next" title="Следующая страница"></a>
+        {% else %}
+        <span class="pagination__arrow pagination__arrow--next pagination__arrow--disabled"></span>
+        {% endif %}
+    </li>
+
+    {% if pagination.pages > 5 %}
+    <li class="pagination__form">
+        <form action="{{url_for(request.endpoint)}}" method="get">
+            {% for key, value in request.args.items() %}
+            {% if key != 'page' %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endif %}
+            {% endfor %}
+
+            <input type="number" name="page" placeholder="№" area-label="Введите номер страницы"
+                class="pagination__input" min="1" max="{{pagination.pages}}">
+        </form>
+    </li>
+    {% endif %}
+</ul>
+
+{% endif %}
