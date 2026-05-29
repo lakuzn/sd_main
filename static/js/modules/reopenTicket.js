@@ -2,20 +2,21 @@ import { showConfirmModal } from './ticketActions.js';
 import { fetchChangeTicketStatus } from "./api.js"
 
 export function initReopenTicket() {
-    const buttonUnResolved = document.getElementById('buttonUnResolved');
+    const buttonsUnResolved = document.querySelectorAll('.js-reopen-card-btn');
+    if (!buttonsUnResolved.length) return;
 
-    if (buttonUnResolved) {
-        const ticketId = buttonUnResolved.value;
+    buttonsUnResolved.forEach(button => {
+        const ticketId = button.value;
 
-        buttonUnResolved.addEventListener('click', () => {
+        button.addEventListener('click', () => {
             showConfirmModal({
                 title: 'Создать похожую?',
                 message: 'Будет создана заявка с сохранением описания и категорий.',
                 confirmText: 'Да, создать заявку',
                 cancelText: 'Отмена',
                 onConfirm: async () =>
-                    await fetchChangeTicketStatus('Новая', buttonUnResolved, ticketId),
+                    await fetchChangeTicketStatus('Новая', button, ticketId),
             });
         });
-    }
+    });
 }

@@ -75,6 +75,12 @@ export function initTicketActions() {
         buttonAddComment.addEventListener('click', () => {
             showAddCommentModal(ticketId);
         });
+
+    const buttonSeeComments = document.getElementById('buttonSeeComments');
+    if (buttonSeeComments)
+        buttonSeeComments.addEventListener('click', () => {
+            showAddCommentModal(ticketId);
+        });
 }
 
 export function initTicketInterface() {
@@ -154,6 +160,7 @@ export function showInviteModal(ticketId) {
             <div class="ticket-person__info">
                 <p class="ticket-person__label">Алексеев Иван Иванович</p>
                 <div class="ticket-person__info-group">
+                    <p class="ticket-person__post">Исполнитель</p>
                     <p class="ticket-person__post">Инженер</p>
                     <p class="ticket-person__department">Отдел 942</p>
                     <p class="ticket-person__phone">10 - 10</p>
@@ -250,6 +257,9 @@ export function showAddCommentModal(ticketId) {
 
     const overlay = modal.querySelector('.modal__overlay');
     overlay.addEventListener('click', closeModal);
+
+    const closeBtn = modal.querySelector('.modal__close');
+    closeBtn.addEventListener('click', closeModal);
 
     initComments();
 }

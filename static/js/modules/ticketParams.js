@@ -253,7 +253,7 @@ function updateTicketExecutors() {
 
     if (!selectedExecutors.length) {
         ticketExecutorsContainer.innerHTML =
-            ' <p class="ticket-person__label">Исполнитель не назначен</p>';
+            '<p class="ticket-person__label">Исполнитель не назначен</p>';
         return
     }
 
@@ -326,7 +326,22 @@ async function initCategories() {
         'dropdownTicketCategoryList',
         options.categories,
         parseToJson(window.currentTicket?.category_ids || []),
-        (newIds) => markAsChanged('categories', newIds)
+        (newIds) => {
+            const originalIds = parseToJson(window.currentTicket?.category_ids || []);
+            const isChanged = JSON.stringify(originalIds.sort()) !== JSON.stringify([...newIds].sort());
+
+            if (isChanged)
+                changedParams['categories'] = [...newIds];
+            else
+                delete changedParams['categories'];
+
+            const hasChanges = Object.keys(changedParams).length > 0;
+
+            if (applyButton) applyButton.style.display = hasChanges ? 'flex' : 'none';
+            if (cancelButton) cancelButton.style.display = hasChanges ? 'flex' : 'none';
+
+        },
+        ticketCategoriesContainer,
     )
 }
 
@@ -348,6 +363,74 @@ function initDeadline() {
     }
 }
 
+function getDeptData(deptId) {
+    const deptEl = document.querySelector(`.js-department-item[data-id="${deptId}"]`);
+    if (!deptEl) return null;
+    const name = deptEl.querySelector('.ticket-person__label')?.textContent?.trim() || '';
+    return { id: deptId, name: name };
+}
+
+function renderDeptItem(dept) {
+    return `<div class="ticket-person"><p class="ticket-person__label">${dept.name}</p></div>`;
+}
+
+function updateTicketDepartments() {
+    if (!ticketDeptsContainer) return;
+
+    if (!selectedDepartments.length) {
+        ticketDeptsContainer.innerHTML =
+            '<div class="ticket-person"><p class="ticket-person__label">Отдел не назначен</p></div>';
+        return;
+    }
+
+    ticketDeptsContainer.innerHTML = '';
+    selectedDepartments.forEach(id => {
+        const dept = getDeptData(id);
+        if (dept)
+            ticketDeptsContainer.insertAdjacentHTML('beforeend', renderDeptItem(dept));
+    });
+}
+
+function updateDeptDropdownSelection() {
+    const depts = document.querySelectorAll('#dropdownTicketDeptList .dropdown-item');
+    depts.forEach(item => {
+        const deptEl = item.querySelector('.js-department-item');
+        if (!deptEl) return;
+        const deptId = parseInt(deptEl.dataset.id);
+        selectedDepartments.includes(deptId)
+            ? deptEl.classList.add('selected')
+            : deptEl.classList.remove('selected');
+    });
+}
+
+function initDepartments() {
+    selectedDepartments = parseToJson(window.currentTicket?.department_ids || []);
+    updateDeptDropdownSelection();
+    updateTicketDepartments();
+
+    const deptItemsList = document.querySelectorAll('#dropdownTicketDeptList .js-department-item');
+    deptItemsList.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            const deptId = parseInt(item.dataset.id);
+            if (isNaN(deptId)) return;
+
+            const index = selectedDepartments.indexOf(deptId);
+            if (index !== -1) {
+                selectedDepartments.splice(index, 1);
+                item.classList.remove('selected');
+            } else {
+                selectedDepartments.push(deptId);
+                item.classList.add('selected');
+            }
+
+            updateTicketDepartments();
+            markAsChanged('department_ids', [...selectedDepartments]);
+        });
+    });
+}
+
 async function applyChanges() {
     if (Object.keys(changedParams).length === 0) return;
 
@@ -367,6 +450,7 @@ function resetAllFields() {
 
     selectedExecutors = originalParams.executor_ids ? [...originalParams.executor_ids] : [];
     updateTicketExecutors();
+    updateDropdownSelection();
 
     if (docNumberInput) docNumberInput.value = originalParams.document_number || '';
     if (deadlineInput) deadlineInput.value = originalParams.desired_deadline || '';
@@ -389,10 +473,13 @@ function disableEditFields() {
 let priorityDropdown = null;
 let categoryCheckboxes = null;
 let selectedExecutors = [];
+let selectedDepartments = [];
 let changedParams = {};
 let originalParams = {};
 
 const ticketExecutorsContainer = document.querySelector('.ticket-executors');
+const ticketCategoriesContainer = document.getElementById('dropdownTicketCategory');
+const ticketDeptsContainer = document.getElementById('dropdownTicketDept');
 const applyButton = document.getElementById('ticketChangeParams');
 const cancelButton = document.getElementById('ticketChangeParamsCancel');
 const docNumberInput = document.getElementById('documentNumber');
@@ -400,25 +487,36 @@ const deadlineInput = document.getElementById('ticketTime');
 
 
 export async function initTicketParams() {
-    originalParams = {
-        priority: window.currentTicket?.priority || null,
-        categories: window.currentTicket?.category_ids || [],
-        executor_ids: parseToJson(window.currentTicket?.executor_ids || []),
-        document_number: document.getElementById('documentNumber')?.value.trim(),
-        desired_deadline: document.getElementById('ticketTime')?.value || null
+    const editableRoles = ['admin', 'classifier', 'head'];
+    const canEditTicket = editableRoles.includes(window.currentUserRole);
+
+    if (canEditTicket) {
+        originalParams = {
+            priority: window.currentTicket?.priority || null,
+            categories: window.currentTicket?.category_ids || [],
+            executor_ids: parseToJson(window.currentTicket?.executor_ids || []),
+            department_ids: parseToJson(window.currentTicket?.department_ids || []),
+            document_number: document.getElementById('documentNumber')?.value.trim(),
+            desired_deadline: document.getElementById('ticketTime')?.value || null
+        }
+
+        await initPriority();
+        await initCategories();
+        initDepartments();
+        initExecutors();
+        initDocumentNumber();
+        initDeadline();
+
+        if (applyButton) applyButton.addEventListener('click', applyChanges);
+        if (cancelButton) cancelButton.addEventListener('click', resetAllFields);
+
+        dropdownTicketInfo('dropdownTicketExecutor', 'dropdownTicketExecutorList');
+        dropdownTicketInfo('dropdownTicketCategory', 'dropdownTicketCategoryList');
+        dropdownTicketInfo('dropdownTicketDept', 'dropdownTicketDeptList');
     }
 
-    await initPriority();
-    await initCategories();
-    initExecutors();
-    initDocumentNumber();
-    initDeadline();
-
-    if (applyButton) applyButton.addEventListener('click', applyChanges);
-    if (cancelButton) cancelButton.addEventListener('click', resetAllFields);
 
     dropdownTicketInfo('dropdownTicketSender', 'dropdownTicketSenderList');
-    dropdownTicketInfo('dropdownTicketExecutor', 'dropdownTicketExecutorList');
-    dropdownTicketInfo('dropdownTicketCategory', 'dropdownTicketCategoryList');
+    dropdownTicketInfo('dropdownTicketExecutorUser', 'dropdownTicketExecutorListUser');
     dropdownTicketInfo('dropdownTicketMore', 'dropdownTicketMoreList');
 }

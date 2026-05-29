@@ -739,6 +739,22 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     width: 100%;
 }
 
+.comments__count {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: var(--font-size-12);
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    background-color: var(--color-warning-500);
+    color: var(--color-warning-100);
+    height: var(--space-16);
+    width: var(--space-16);
+    min-width: var(--space-16);
+    transition: var(--transition-colors);
+}
+
 .section {
     position: relative;
     min-height: 0;
@@ -968,6 +984,15 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     height: 100%;
 }
 
+.content__card--overdue {
+    border-color: var(--color-danger-600);
+}
+
+.content__card-item {
+    display: flex;
+    flex-direction: column;
+}
+
 .content__card:last-child {
     border-radius: var(--radius-8);
 }
@@ -988,7 +1013,7 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 .card__category,
 .ticket__priority,
 .ticket__status,
-.card__deadline {
+.card__overdue {
     display: flex;
 
     border-radius: var(--radius-full);
@@ -1056,6 +1081,10 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 }
 
 .card__deadline {
+    color: var(--color-danger-600);
+}
+
+.card__overdue {
     border: 1px solid var(--color-danger-600);
     color: var(--color-danger-600);
 }
@@ -1617,10 +1646,6 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     row-gap: var(--space-8);
 }
 
-.discussion-chat--comment {
-    overflow-y: auto;
-}
-
 .discussion-chat__message {
     display: flex;
     -moz-column-gap: var(--space-8);
@@ -2000,12 +2025,6 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     color: var(--color-gray-500);
 }
 
-.content__faqs.content__faqs--search,
-.content__tickets {
-    border-top: 2px solid var(--color-gray-300);
-    padding-top: var(--space-16);
-}
-
 .content__tickets {
     display: flex;
     flex-direction: column;
@@ -2080,6 +2099,32 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 
 .ql-editor>* {
     white-space: nowrap;
+}
+
+.search-filter {
+    display: flex;
+    column-gap: var(--space-4);
+
+    background-color: var(--color-gray-50);
+    width: fit-content;
+    border-radius: var(--radius-8);
+    padding: var(--space-4);
+}
+
+.search-results {
+    overflow-y: auto;
+}
+
+.search-results .faqs-group {
+    border: none;
+}
+
+.search-results>*:not(:last-child) {
+    padding-bottom: var(--space-16);
+}
+
+.search-results .faqs-group:first-child {
+    padding-top: 0;
 }
 
 body.body-login {
@@ -2272,18 +2317,30 @@ body.body-login {
     padding-bottom: var(--space-12);
 }
 
-.ticket-person__info-group {
+.modal__invite-executors .ticket-person__info-group {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-4);
+    row-gap: var(--space-2);
+    column-gap: var(--space-6);
 }
 
-.ticket-person__info-group>* {
+.modal__invite-executors .ticket-person__info-group>* {
+    display: inline-flex;
+    column-gap: var(--space-6);
+    align-items: center;
+
     font-size: var(--font-size-14);
-    font-weight: 500;
-    color: var(--color-gray-50);
-    padding: var(--space-2) var(--space-6);
-    border-radius: var(--radius-4);
+    font-weight: 400;
+}
+
+.modal__invite-executors .ticket-person__info-group>*:not(:last-child)::after {
+    content: '';
+    display: flex;
+
+    border-radius: var(--radius-full);
+    height: var(--space-4);
+    width: var(--space-4);
+    min-width: var(--space-4);
     background-color: var(--color-gray-400);
 }
 
@@ -2391,6 +2448,11 @@ body.body-login {
     border: 1px solid var(--color-gray-300);
     background-color: var(--color-gray-100);
     color: var(--color-gray-600);
+}
+
+.button--outline.active {
+    background-color: var(--color-gray-500);
+    color: var(--color-gray-100);
 }
 
 .button--solid--primary {
@@ -2540,6 +2602,16 @@ body.body-login {
 
     .card__reopen:hover:active {
         background-color: var(--color-gray-700);
+    }
+
+    .comments__button:hover {
+        color: var(--color-gray-50);
+        background-color: var(--color-warning-400);
+    }
+
+    .comments__button:hover .comments__count {
+        background-color: var(--color-gray-50);
+        color: var(--color-warning-500);
     }
 }
 

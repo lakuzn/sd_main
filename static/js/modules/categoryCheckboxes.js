@@ -1,11 +1,43 @@
-export function createCategoryCheckboxes(containerId, options, initialSelectedIds = [], onChange) {
+// categoryCheckboxes.js
+export function createCategoryCheckboxes(containerId, allCategories, initialSelectedIds = [], onChange, selectedContainerId = null) {
     const container = document.getElementById(containerId);
     if (!container) return null;
 
-    let currentSelected = initialSelectedIds;
-    const originalSelected = currentSelected;
+    // Если передан контейнер для отображения выбранных категорий
+    const selectedContainer = selectedContainerId ? selectedContainerId : null;
 
+    let currentSelected = [...initialSelectedIds];
+    const originalSelected = [...initialSelectedIds];
+
+    // Функция обновления отображения выбранных категорий
+    function updateSelectedDisplay() {
+        if (!selectedContainer) return;
+
+        if (currentSelected.length === 0) {
+            selectedContainer.innerHTML = `
+                <div class="categories-item">
+                    <p class="categories-item__label">Не указаны</p>
+                </div>
+            `;
+            return;
+        }
+
+        selectedContainer.innerHTML = '';
+        currentSelected.forEach(id => {
+            const category = allCategories.find(cat => cat.id === id);
+            if (category) {
+                const item = document.createElement('div');
+                item.setAttribute('id', id);
+                item.className = 'categories-item';
+                item.innerHTML = `<p class="categories-item__label">${escapeHtml(category.name)}</p>`;
+                selectedContainer.appendChild(item);
+            }
+        });
+    }
+
+    // Рендер чекбоксов
     function render() {
+        // Сохраняем заголовок (если есть)
         const header = container.querySelector('.dropdown-header');
         container.innerHTML = '';
         if (header) container.appendChild(header);
@@ -13,14 +45,14 @@ export function createCategoryCheckboxes(containerId, options, initialSelectedId
         const listContainer = document.createElement('div');
         listContainer.className = 'dropdown-list';
 
-        options.forEach(category => {
+        allCategories.forEach(category => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'dropdown-item';
 
             const ul = document.createElement('ul');
             ul.className = 'ticket-category__list';
 
-            const li = document.createElement('ul');
+            const li = document.createElement('li');
             li.className = 'ticket-category__header';
 
             const checkbox = document.createElement('input');
@@ -40,23 +72,22 @@ export function createCategoryCheckboxes(containerId, options, initialSelectedId
             label.addEventListener('click', (e) => {
                 e.preventDefault();
                 checkbox.checked = !checkbox.checked;
-
                 const event = new Event('change', { bubbles: true });
                 checkbox.dispatchEvent(event);
             });
 
             checkbox.addEventListener('change', () => {
                 if (checkbox.checked) {
-                    if (!currentSelected.includes(category.id))
+                    if (!currentSelected.includes(category.id)) {
                         currentSelected.push(category.id);
-
+                    }
                     label.classList.add('checked');
                 } else {
                     currentSelected = currentSelected.filter(id => id !== category.id);
                     label.classList.remove('checked');
                 }
-
-                onChange?.([...currentSelected]);
+                updateSelectedDisplay();
+                if (onChange) onChange([...currentSelected]);
             });
 
             li.appendChild(checkbox);
@@ -67,6 +98,7 @@ export function createCategoryCheckboxes(containerId, options, initialSelectedId
         });
 
         container.appendChild(listContainer);
+        updateSelectedDisplay();
     }
 
     render();
@@ -83,6 +115,21 @@ export function createCategoryCheckboxes(containerId, options, initialSelectedId
             render();
             if (onChange) onChange([...currentSelected]);
         },
-        getOriginalValue: () => [...originalSelected]
-    }
+        getOriginalValue: () => [...originalSelected],
+        // Дополнительно обновить оригинальное значение (после сохранения)
+        updateOriginal: () => {
+            // не нужно для reload, но можно оставить
+        }
+    };
+}
+
+// Вспомогательная функция для безопасности
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function (m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
 }

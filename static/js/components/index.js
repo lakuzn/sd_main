@@ -8,6 +8,7 @@ import { initTicketParams } from "../modules/ticketParams.js";
 import { initFaqsActions } from "../modules/faqsActions.js";
 import { initArticle } from "../modules/article.js";
 import { initSocketDashboardTickets } from "../modules/dashboard.js";
+import { initSearchFilter } from "../modules/search/searchFilter.js"
 
 export async function initAllComponents() {
     initDropdownNotification();
@@ -20,7 +21,7 @@ export async function initAllComponents() {
         initChat();
         initTicketParams();
     }
-    else if (document.getElementById('dashboard_archive')) {
+    else if (document.getElementById('archive')) {
         initReopenTicket();
     }
     else if (document.getElementById('faqs')) {
@@ -32,5 +33,8 @@ export async function initAllComponents() {
     }
     else if (document.getElementById('dashboard')) {
         initSocketDashboardTickets();
+    }
+    else if (document.getElementById('search')) {
+        initSearchFilter();
     }
 }
