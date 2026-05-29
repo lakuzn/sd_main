@@ -8,6 +8,6 @@
 <span class="ticket__status ticket__status--completed">{{ ticket.status }}</span>
 {% elif ticket.status == "В обработке" %}
 <span class="ticket__status ticket__status--processing">{{ ticket.status }}</span>
-{% elif ticket.status == "Ожидает подтверждения" %}
-<span class="ticket__status ticket__status--processing">{{ ticket.status }}</span>
+{% elif ticket.status == "Требует проверки" %}
+<span class="ticket__status ticket__status--approve">{{ ticket.status }}</span>
 {% endif %}

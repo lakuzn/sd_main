@@ -14,7 +14,7 @@ class SearchService:
         Ищет по ID, описанию и номеру документа.
         """
         if not query_str or not query_str.strip():
-            return []
+            return [], 0
 
         query_str = query_str.strip()
         search_term = f"%{query_str}%"
@@ -44,31 +44,29 @@ class SearchService:
         if query_str.isdigit():
             filters.append(Ticket.id == int(query_str))
 
-        # Выполняем поиск и сортируем: сначала самые свежие
-        results = (
-            base_query.filter(or_(*filters)).order_by(Ticket.created_at.desc()).all()
-        )
+        count_query = base_query.filter(or_(*filters))
+        total = count_query.count()
 
-        return results
+        # Выполняем поиск и сортируем: сначала самые свежие
+        results = count_query.order_by(Ticket.created_at.desc()).all()
+
+        return results, total
 
     @staticmethod
     def search_articles_grouped_by_category(query_text):
         """Поиск по базе знаний + группировка по категориям"""
         if not query_text:
-            return {}
+            return {}, 0
 
         words = query_text.split()
         conditions = [KnowledgeArticle.title.ilike(f"%{word}%") for word in words]
 
-        articles = KnowledgeArticle.query.filter(or_(*conditions)).all()
+        total = KnowledgeArticle.query.filter(or_(*conditions)).count()
 
+        articles = KnowledgeArticle.query.filter(or_(*conditions)).all()
         grouped = {}
         for article in articles:
             category_name = article.category.name if article.category else "Прочее"
+            grouped.setdefault(category_name, []).append(article)
 
-            if category_name not in grouped:
-                grouped[category_name] = []
-
-            grouped[category_name].append(article)
-
-        return grouped
+        return grouped, total

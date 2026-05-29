@@ -59,6 +59,14 @@ class TicketService:
 
             db.session.commit()
             TicketService._emit_to_dashboards("ticket_created", ticket)
+
+            from app.services.notification_service import NotificationService
+            NotificationService.create_notification(
+                user_id=applicant_id,
+                message=f"Ваша заявка #{ticket.id} успешно зарегистрирована в системе.",
+                ticket_id=ticket.id,
+            )
+
             return ticket
         except Exception as e:
             db.session.rollback()
@@ -87,9 +95,28 @@ class TicketService:
 
         ticket.updated_at = datetime.now()
 
+        old_status = ticket.status
         TicketService._update_ticket_status_after_message(ticket, user.role, user)
 
         db.session.commit()
+
+        # Уведомления при смене статуса из-за сообщения
+        from app.services.notification_service import NotificationService
+        if ticket.status == "Ожидает ответа" and old_status != "Ожидает ответа":
+            # Исполнитель написал — уведомляем заявителя
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Исполнитель ожидает вашего ответа по заявке #{ticket.id}.",
+                ticket_id=ticket.id,
+            )
+        elif user.role == "user" and old_status == "Ожидает ответа" and ticket.status != "Ожидает ответа":
+            # Заявитель ответил — уведомляем всех исполнителей
+            for executor in ticket.executors:
+                NotificationService.create_notification(
+                    user_id=executor.id,
+                    message=f"Заявитель ответил по заявке #{ticket.id}.",
+                    ticket_id=ticket.id,
+                )
 
         socketio.emit(
             "receive_message",
@@ -130,11 +157,11 @@ class TicketService:
     def resolve_ticket(ticket_id, user):
         ticket = Ticket.query.get_or_404(ticket_id)
 
-        if user.id != ticket.applicant_id:
+        if user.id != ticket.applicant_id and user.role not in ["head", "admin"]:
             return False, "У вас нет прав для закрытия данной заявки"
 
         if ticket.status == "Решена":
-            return False, "У вас нет прав для закрытия данной заявки"
+            return False, "Заявка уже закрыта"
 
         ticket.status = "Решена"
         ticket.updated_at = datetime.now()
@@ -147,6 +174,14 @@ class TicketService:
         )
 
         db.session.commit()
+
+        from app.services.notification_service import NotificationService
+        for executor in ticket.executors:
+            NotificationService.create_notification(
+                user_id=executor.id,
+                message=f"Заявитель закрыл заявку #{ticket.id} как решённую.",
+                ticket_id=ticket.id,
+            )
 
         return True, ticket
 
@@ -218,6 +253,7 @@ class TicketService:
 
         category_ids = [c.id for c in ticket.categories] if ticket.categories else []
         executor_ids = [c.id for c in ticket.executors] if ticket.executors else []
+        department_ids = [d.id for d in ticket.departments] if ticket.departments else []
 
         context = {
             "ticket": ticket,
@@ -229,6 +265,7 @@ class TicketService:
             "form": form,
             "category_ids": category_ids,
             "executor_ids": executor_ids,
+            "department_ids": department_ids,
         }
 
         # Если смотрит НЕ user, достаем Внутренние комментарии
@@ -253,11 +290,14 @@ class TicketService:
                 ticket.classifier_id = current_user.id
                 db.session.commit()
 
-        # Если смотрит Начальник отдела, ему нужны его исполнители
-        # elif current_user.role == "head":
-        #     context["executors"] = User.query.filter_by(
-        #         department_id=current_user.department_id, role="executor"
-        #     ).all()
+        # Если смотрит Начальник отдела — те же права, что у классификатора
+        elif current_user.role == "head":
+            context["categories"] = Category.query.all()
+            context["departments"] = Department.query.all()
+            context["executors"] = User.query.filter(
+                User.role.in_(["executor", "head"]),
+                User.department_id == current_user.department_id,
+            ).all()
 
         return context
 
@@ -296,6 +336,15 @@ class TicketService:
         )
 
         db.session.commit()
+
+        # Уведомляем назначенных исполнителей о новой заявке
+        from app.services.notification_service import NotificationService
+        for executor in ticket.executors:
+            NotificationService.create_notification(
+                user_id=executor.id,
+                message=f"Вам назначена заявка #{ticket.id}.",
+                ticket_id=ticket.id,
+            )
 
         TicketService._emit_to_dashboards(
             "ticket_updated",
@@ -414,6 +463,15 @@ class TicketService:
 
         db.session.commit()
 
+        # Уведомляем назначенных исполнителей
+        from app.services.notification_service import NotificationService
+        for executor in ticket.executors:
+            NotificationService.create_notification(
+                user_id=executor.id,
+                message=f"Вам назначена заявка #{ticket.id}.",
+                ticket_id=ticket.id,
+            )
+
         # Новое
         TicketService._emit_to_dashboards(
             "ticket_updated",
@@ -505,71 +563,67 @@ class TicketService:
         # === УМНАЯ МАРШРУТИЗАЦИЯ ОТДЕЛОВ И СТАТУСОВ ===
         if executors_changed:
             if ticket.executors:
-                # 1. Если назначили людей: собираем их уникальные отделы
+                # 1. Назначили людей: привязываем их уникальные отделы к заявке
                 departments_set = set()
                 for ex in ticket.executors:
                     if ex.department:
                         departments_set.add(ex.department)
+                ticket.departments = list(departments_set)
 
-        # Жестко привязываем заявку к этим отделам
-        ticket.departments = list(departments_set)
-
-        # Переводим в работу, если она была новой или висела в отделе
-        if ticket.status in ["Новая", "В обработке"]:
-            TicketService.change_status(ticket, "В работе", user)
-        else:
-            # 2. Если удалили ВСЕХ исполнителей:
-            # Смотрим, остался ли привязанный отдел
-            if ticket.departments and ticket.status in ["В работе", "Ожидает ответа"]:
-                # Возвращаем заявку в пул отдела
-                TicketService.change_status(ticket, "В обработке", user)
-            elif not ticket.departments:
-                # Если ни исполнителей, ни отделов нет
-                TicketService.change_status(ticket, "Новая", user)
-
-            # 3. Если исполнителей не трогали, но классификатор вручную назначил отдел
-            elif "department_ids" in params and not ticket.executors:
-                if ticket.departments and ticket.status == "Новая":
+                if ticket.status in ["Новая", "В обработке"]:
+                    TicketService.change_status(ticket, "В работе", user)
+            else:
+                # 2. Удалили ВСЕХ исполнителей
+                if ticket.departments and ticket.status in ["В работе", "Ожидает ответа"]:
+                    # Возвращаем заявку в пул отдела
                     TicketService.change_status(ticket, "В обработке", user)
-            try:
-                from app.extensions import db
+                elif not ticket.departments:
+                    # Ни исполнителей, ни отделов — возврат в новые
+                    TicketService.change_status(ticket, "Новая", user)
 
-                db.session.commit()
+        # 3. Исполнителей не трогали, но назначили/сменили отдел
+        elif "department_ids" in params and not ticket.executors:
+            if ticket.departments and ticket.status == "Новая":
+                TicketService.change_status(ticket, "В обработке", user)
 
-                # Вызываем LogService
-                LogService.create_log(
-                    ticket_id=ticket.id,
-                    user_id=user.id,
-                    event_type="Изменение параметров",
-                    details=f"Пользователь {user.full_name} обновил параметры заявки.",
-                )
+        try:
+            from app.extensions import db
 
-                socketio.emit(
-                    "ticket_params_changed",
-                    {"ticket_id": ticket.id},
-                    room=str(ticket.id),
-                )
+            db.session.commit()
 
-                TicketService._emit_to_dashboards(
-                    "ticket_updated",
-                    ticket,
-                    extra_data={
-                        "changed_params": params,
-                    },
-                )
+            LogService.create_log(
+                ticket_id=ticket.id,
+                user_id=user.id,
+                event_type="Изменение параметров",
+                details=f"Пользователь {user.full_name} обновил параметры заявки.",
+            )
 
-                return True
-            except Exception as e:
-                db.session.rollback()
-                print(f"Ошибка при сохранении параметров: {e}")
-                return False
+            socketio.emit(
+                "ticket_params_changed",
+                {"ticket_id": ticket.id},
+                room=str(ticket.id),
+            )
+
+            TicketService._emit_to_dashboards(
+                "ticket_updated",
+                ticket,
+                extra_data={
+                    "changed_params": params,
+                },
+            )
+
+            return True
+        except Exception as e:
+            db.session.rollback()
+            print(f"Ошибка при сохранении параметров: {e}")
+            return False
 
     @staticmethod
     def take_in_work(ticket, user):
         """Метод для самостоятельного взятия заявки из пула отдела"""
         # Проверяем, что заявка действительно направлена в отдел пользователя
         # и что на ней еще нет исполнителей
-        if user.department in ticket.departments and not ticket.executors:
+        if ticket.status == "В обработке" and user.department in ticket.departments and not ticket.executors:
             # Добавляем пользователя как исполнителя
             ticket.executors.append(user)
 
@@ -577,8 +631,81 @@ class TicketService:
             TicketService.change_status(ticket, "В работе", user)
 
             db.session.commit()
+
+            from app.services.notification_service import NotificationService
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Ваша заявка #{ticket.id} взята в работу исполнителем {user.full_name}.",
+                ticket_id=ticket.id,
+            )
+
             return True
         return False
+
+    @staticmethod
+    def request_review(ticket, user):
+        """Исполнитель сообщает заявителю, что задача выполнена — просит проверить"""
+        from app.services.notification_service import NotificationService
+
+        TicketService.change_status(ticket, "Требует проверки", user)
+
+        NotificationService.create_notification(
+            user_id=ticket.applicant_id,
+            message=f"Заявка #{ticket.id} выполнена. Требуется проверить исполнение.",
+            ticket_id=ticket.id,
+        )
+
+    @staticmethod
+    def reject_resolution(ticket, user):
+        """Заявитель отклоняет решение и возвращает заявку в работу"""
+        from app.services.notification_service import NotificationService
+
+        new_status = "В работе" if ticket.executors else "В обработке"
+        TicketService.change_status(ticket, new_status, user)
+
+        for executor in ticket.executors:
+            NotificationService.create_notification(
+                user_id=executor.id,
+                message=(
+                    f"Заявитель отклонил решение по заявке #{ticket.id}. "
+                    "Требуется доработка."
+                ),
+                ticket_id=ticket.id,
+            )
+
+    @staticmethod
+    def assign_department(ticket, department_id, user):
+        """Классификатор направляет заявку в пул отдела без конкретного исполнителя"""
+        department = Department.query.get(department_id)
+        if not department:
+            return False
+
+        # Назначаем отдел, снимаем исполнителей — заявка уходит в общий пул отдела
+        ticket.departments = [department]
+        ticket.executors = []
+
+        LogService.create_log(
+            ticket_id=ticket.id,
+            user_id=user.id,
+            event_type="Назначение отдела",
+            details=f"Заявка #{ticket.id} направлена в отдел «{department.name}»",
+        )
+
+        # change_status делает commit если статус меняется;
+        # если уже "В обработке" — возвращается без commit, делаем сами
+        TicketService.change_status(ticket, "В обработке", user)
+        db.session.commit()
+
+        from app.services.notification_service import NotificationService
+        if department.head_id:
+            NotificationService.create_notification(
+                user_id=department.head_id,
+                message=f"В ваш отдел направлена заявка #{ticket.id}.",
+                ticket_id=ticket.id,
+            )
+
+        TicketService._emit_to_dashboards("ticket_updated", ticket)
+        return True
 
     @staticmethod
     def _emit_to_dashboards(event_name, ticket, extra_data=None):
@@ -616,6 +743,12 @@ class TicketService:
         if ticket.status == "Решена":
             for executor in ticket.executors:
                 rooms.add(f"dashboard_archive_{executor.id}")
+
+        # 6. Дашборды начальников отделов (для заявок в их отделе)
+        if ticket.status != "Решена":
+            for dept in ticket.departments:
+                if dept.head_id:
+                    rooms.add(f"dashboard_head_{dept.head_id}")
 
         # Формируем данные для отправки
         ticket_dict = ticket.to_dict()  # нужно добавить метод в модель Ticket

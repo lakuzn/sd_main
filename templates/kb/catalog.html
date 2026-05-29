@@ -27,10 +27,12 @@
                     </div>
                 </div>
                 <!-- Конец. Категории -->
+                {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
                 <a href="{{ url_for('kb.create_article') }}"
                     class="button button--solid--primary button--md noresults__button">
                     Создать статью
                 </a>
+                {% endif %}
             </div>
         </div>
 
@@ -39,7 +41,6 @@
                 {% for category_name, articles_in_cat in grouped_articles.items() %}
                 <div class="faqs-group">
                     <h2 class="faqs-group__category h2">{{ category_name }}</h2>
-
                     <div class="faqs-group__list">
                         {% for article in articles_in_cat %}
                         <a href="{{url_for('kb.article', id=article.id)}}" class="faqs-group__item">

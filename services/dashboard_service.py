@@ -34,17 +34,13 @@ class DashboardService:
         user = User.query.get(user_id)
         tickets = (
             Ticket.query.filter(
+                Ticket.status != "Решена",
                 or_(
-                    and_(
-                        Ticket.executors.any(id=user_id),
-                        Ticket.status.in_(["В работе", "Ожидает ответа"]),
-                    ),
-                    and_(
-                        Ticket.departments.any(id=user.department_id),
-                        Ticket.executors.any(),
-                        Ticket.status != "Решена",
-                    ),
-                )
+                    # Заявки, где пользователь назначен исполнителем
+                    Ticket.executors.any(id=user_id),
+                    # Все заявки в его отделе (включая без исполнителей — для «Взять в работу»)
+                    Ticket.departments.any(id=user.department_id),
+                ),
             )
             .order_by(Ticket.updated_at.desc())
             .all()
@@ -53,6 +49,25 @@ class DashboardService:
         return {
             "tickets": tickets,
         }
+
+    @staticmethod
+    def get_head_data(user_id):
+        """Дашборд начальника отдела: все активные заявки в его отделе + лично на нём"""
+        user = User.query.get(user_id)
+
+        tickets = (
+            Ticket.query.filter(
+                Ticket.status != "Решена",
+                or_(
+                    Ticket.departments.any(id=user.department_id),
+                    Ticket.executors.any(id=user_id),
+                ),
+            )
+            .order_by(Ticket.updated_at.desc())
+            .all()
+        )
+
+        return {"tickets": tickets}
 
     @staticmethod
     def get_classifier_data(user_id, page=1, per_page=18):
