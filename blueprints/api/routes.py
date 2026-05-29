@@ -59,6 +59,30 @@ def api_ticket_reply(ticket_id):
             400,
         )
 
+    if current_user.role == "executor":
+        executor_ids = [ex.id for ex in ticket.executors]
+        if current_user.id not in executor_ids:
+            return (
+                jsonify(
+                    {"status": "error", "message": "У вас нет доступа к этой заявке"}
+                ),
+                403,
+            )
+
+    if current_user.role == "classifier" and ticket.status not in [
+        "Новая",
+        "В обработке",
+    ]:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Классификатор не может писать в чат на данном этапе",
+                }
+            ),
+            403,
+        )
+
     TicketService.create_message(
         ticket_id=ticket_id,
         content=content,
@@ -72,7 +96,7 @@ def api_ticket_reply(ticket_id):
 # Смена статуса заявки
 @api_bp.route("/ticket/<int:ticket_id>/status", methods=["POST"])
 @login_required
-@role_required(["user", "classifier", "admin", "head"])
+@role_required(["user", "executor", "classifier", "admin", "head"])
 def api_ticket_change_status(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
@@ -150,6 +174,7 @@ def read_all_notifications():
 # Отправка комментария через socketio
 @api_bp.route("/ticket/<int:ticket_id>/internal_comment", methods=["POST"])
 @login_required
+@role_required(["executor", "classifier", "admin", "head"])
 def api_comment_reply(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
@@ -161,6 +186,30 @@ def api_comment_reply(ticket_id):
                 {"status": "error", "comment": "Нельзя отправить пустой комментарий"}
             ),
             400,
+        )
+
+    if current_user.role == "executor":
+        executor_ids = [ex.id for ex in ticket.executors]
+        if current_user.id not in executor_ids:
+            return (
+                jsonify(
+                    {"status": "error", "message": "У вас нет доступа к этой заявке"}
+                ),
+                403,
+            )
+
+    if current_user.role == "classifier" and ticket.status not in [
+        "Новая",
+        "В обработке",
+    ]:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Классификатор не может добавлять комментарии на данном этапе",
+                }
+            ),
+            403,
         )
 
     TicketService.create_comment(
@@ -185,10 +234,9 @@ def api_resolve_ticket(ticket_id):
     return jsonify({"status": "success"})
 
 
-# Убрать "user"
 @api_bp.route("/ticket/<int:ticket_id>", methods=["PATCH"])
 @login_required
-@role_required(["user", "classifier", "admin", "head"])
+@role_required(["classifier", "admin", "head"])
 def change_ticket_params(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
@@ -200,6 +248,15 @@ def change_ticket_params(ticket_id):
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    if current_user.role == "classifier" and ticket.status not in [
+        "Новая",
+        "В обработке",
+    ]:
+        return (
+            jsonify({"error": "Нельзя изменять параметры заявки в данном статусе"}),
+            403,
+        )
+
     TicketService.change_params(ticket, current_user, **data)
 
     return jsonify({"status": "success"})
@@ -209,7 +266,7 @@ def change_ticket_params(ticket_id):
 # Убрать "user"
 @api_bp.route("/ticket/params", methods=["GET"])
 @login_required
-@role_required(["user", "classifier", "admin", "head", "executor"])
+@role_required(["classifier", "admin", "head", "executor"])
 def get_ticket_params():
     categories = Category.query.all()
     categories_list = [{"id": c.id, "name": c.name} for c in categories]

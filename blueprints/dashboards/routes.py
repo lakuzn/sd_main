@@ -18,12 +18,15 @@ def user():
     )
 
 
-# Дашборд агента
+# Дашборд агента / начальника отдела
 @dashboards_bp.route("/executor")
 @login_required
 @role_required(["executor", "admin", "head"])
 def executor():
-    data = DashboardService.get_executor_data(current_user.id)
+    if current_user.role == "head":
+        data = DashboardService.get_head_data(current_user.id)
+    else:
+        data = DashboardService.get_executor_data(current_user.id)
 
     return render_template(
         "dashboards/executor.html",
