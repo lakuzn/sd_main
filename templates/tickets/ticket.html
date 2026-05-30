@@ -47,7 +47,6 @@
                         <div id="dropdownTicketSender" aria-haspopup="listbox" aria-expanded="false"
                             class="button button--outline button--sm ticket-param">
                             <div class="ticket-person">
-                                <!-- <img src="" alt=""> -->
                                 <span class="ticket-person__img ticket-person__img--sender">{% set name_parts =
                                     ticket.applicant.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
                                     name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}</span>
@@ -94,7 +93,6 @@
                             {% if ticket.executors %}
                             {% for executor in ticket.executors %}
                             <div class="ticket-person">
-                                <!-- <img src="" alt=""> -->
                                 <span class="ticket-person__img ticket-person__img--executor">{% set name_parts =
                                     executor.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
                                     name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}</span>
@@ -112,8 +110,8 @@
                             style="display: none;">
                             <div class="dropdown-header">
                                 <p class="dropdown-header__title">Исполнители</p>
-                                <input type="text" name="" class="search__input" placeholder="Начните вводить..."
-                                    value="">
+                                <input type="text" id="executorSearch" class="search__input"
+                                    placeholder="Начните вводить..." value="">
                             </div>
 
                             <div class="dropdown-list">
@@ -154,7 +152,6 @@
                         <div id="dropdownTicketExecutorUser" class="ticket-executors button button--outline button--sm">
                             {% for executor in ticket.executors %}
                             <div class="ticket-person">
-                                <!-- <img src="" alt=""> -->
                                 <span class="ticket-person__img ticket-person__img--executor">{% set name_parts =
                                     executor.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
                                     name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}</span>
@@ -234,13 +231,27 @@
                                 {% endif %}
                             </div>
 
-                            <div id="dropdownTicketCategoryList" class="dropdown dropdown-ticket__category"
+                            <div id="dropdownTicketCategoryList" class="dropdown dropdown-ticket__person"
                                 style="display: none;">
                                 <div class="dropdown-header">
                                     <div class="dropdown-description">
                                         <p class="dropdown-header__title">Категории</p>
                                         <p class="dropdown-header__subtitle">Можно выбрать несколько</p>
                                     </div>
+                                    <input type="text" id="categorySearch" class="search__input"
+                                        placeholder="Начните вводить..." value="">
+                                </div>
+                                <div class="dropdown-list">
+                                    {% for cat in categories %}
+                                    <div class="dropdown-item">
+                                        <div data-id="{{ cat.id }}"
+                                            class="ticket-person button js-category-item{% for assigned in ticket.categories %}{% if assigned.id == cat.id %} selected{% endif %}{% endfor %}">
+                                            <div class="ticket-person__info">
+                                                <p class="ticket-person__label">{{ cat.name }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
@@ -289,6 +300,8 @@
                             style="display: none;">
                             <div class="dropdown-header">
                                 <p class="dropdown-header__title">Отдел</p>
+                                <input type="text" id="deptSearch" class="search__input"
+                                    placeholder="Начните вводить..." value="">
                             </div>
                             <div class="dropdown-list">
                                 {% for dept in departments %}
@@ -308,14 +321,12 @@
                 {% endif %}
 
                 {% if (current_user.role != 'user') %}
-                {% if comments %}
-                <div class="ticket-block">
+                <div class="ticket-block ticket-block--comments" {% if not comments %}style="display: none;"{% endif %}>
                     <button type="button" id="buttonSeeComments"
                         class="comments__button button button--sm button--nowrap">
                         Внутр. комм. <span class="comments__count">{{comments | length}}</span>
                     </button>
                 </div>
-                {% endif %}
                 {% endif %}
 
                 <div class="ticket-block ticket-block-time">
@@ -434,6 +445,13 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Решена' %}
+                    <button type="button" id="buttonDeleteTicket"
+                        class="button button--sm button--outline" style="color: var(--color-danger-500); border-color: var(--color-danger-400);">
+                        Удалить заявку
+                    </button>
+                    {% endif %}
                 </div>
 
                 <!-- Появляется, если появились изменения -->
@@ -498,6 +516,9 @@
                                         <p class="message-content__user">
                                             {{message.sender.full_name}}
                                         </p>
+                                        {% if message.sender.position %}
+                                        <p class="message-content__position">{{message.sender.position}}</p>
+                                        {% endif %}
                                         <time class="message-content__time"
                                             datetime="{{message.created_at.isoformat()}}">
                                             {{message.created_at.strftime('%d.%m, %H:%M')}}
@@ -526,7 +547,7 @@
 
                 <form id="chat-form" class="chat-form" enctype="multipart/form-data" {% if ticket.status=='Решена' or
                     (current_user.role=='executor' and current_user not in ticket.executors) or
-                    (current_user.role=='classifier' and ticket.status not in ['Новая', 'В обработке' ]) %}
+                    (current_user.role=='classifier' and current_user not in ticket.executors and ticket.status not in ['Новая', 'В обработке' ]) %}
                     style="display: none;" {% endif %}>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -571,6 +592,7 @@
                     <div class="discussion-chat__message-content">
                         <div class="message-content__body">
                             <div class="message-content__title">
+                                <p class="message-content__user">{{comment.author.full_name}}</p>
                                 <time class="message-content__time" datetime="{{comment.created_at.isoformat()}}">
                                     {{comment.created_at.strftime('%d.%m, %H:%M')}}
                                 </time>
@@ -608,6 +630,28 @@
 </div>
 {% endif %}
 
+<!-- Модальное окно подтверждения удаления заявки -->
+<div id="modalDeleteTicket" class="modal" style="display: none;">
+    <div class="modal__overlay"></div>
+    <div class="modal__content">
+        <div class="modal__header">
+            <h3 class="modal__title h3">Удалить заявку?</h3>
+            <button type="button" aria-label="Закрыть окно" class="button button--solid modal__close" id="modalDeleteClose">
+                <span class="sr-only">Закрыть</span>
+                ⤫
+            </button>
+        </div>
+        <p class="modal__message">Вы точно хотите удалить заявку? В этом случае Вы не сможете просмотреть информацию по ней.</p>
+        <div class="modal__actions">
+            <button type="button" class="button button--outline button--md" id="modalDeleteCancel">Отмена</button>
+            <button type="button" class="button button--md" id="modalDeleteConfirm"
+                style="background-color: var(--color-danger-500); color: #fff; border-color: var(--color-danger-600);">
+                Да, удалить
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block script %}
@@ -623,6 +667,7 @@
     };
 
     window.currentUserId = "{{ current_user.id }}";
+    window.currentUserRole = "{{ current_user.role }}";
 </script>
 
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>

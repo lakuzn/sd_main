@@ -1,21 +1,25 @@
 import { showConfirmModal } from './ticketActions.js';
-import { fetchChangeTicketStatus } from "./api.js"
+import { fetchCloneTicket } from "./api.js"
 
 export function initReopenTicket() {
     const buttonsUnResolved = document.querySelectorAll('.js-reopen-card-btn');
     if (!buttonsUnResolved.length) return;
 
     buttonsUnResolved.forEach(button => {
-        const ticketId = button.value;
+        const ticketId = button.dataset.ticketId;
 
         button.addEventListener('click', () => {
             showConfirmModal({
                 title: 'Создать похожую?',
-                message: 'Будет создана заявка с сохранением описания и категорий.',
+                message: 'Будет создана новая заявка с сохранением описания и категорий.',
                 confirmText: 'Да, создать заявку',
                 cancelText: 'Отмена',
-                onConfirm: async () =>
-                    await fetchChangeTicketStatus('Новая', button, ticketId),
+                onConfirm: async () => {
+                    const result = await fetchCloneTicket(ticketId, button);
+                    if (result && result.ticket_id) {
+                        window.location.href = `/ticket/${result.ticket_id}`;
+                    }
+                }
             });
         });
     });

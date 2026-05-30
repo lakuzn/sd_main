@@ -3,7 +3,7 @@ export function initFileUpload(fileInputId, fileListId, dropZoneId) {
     const fileList = document.getElementById(fileListId);
     const dropZone = document.getElementById(dropZoneId);
 
-    if (!fileInput) return;
+    if (!fileInput) return null;
 
     let currentFiles = [];
 
@@ -15,8 +15,8 @@ export function initFileUpload(fileInputId, fileListId, dropZoneId) {
             const li = document.createElement('li');
             li.className = 'form-files__item';
             li.innerHTML = `
-                <span class=form-files__name">${file.name} ${(file.size / 1024).toFixed(2)}КВ</span>
-                <button type="button" data-index="${index}" aria-label="Удалить файл" 
+                <span class="form-files__name">${file.name} ${(file.size / 1024).toFixed(2)}КВ</span>
+                <button type="button" data-index="${index}" aria-label="Удалить файл"
                 class="form-files__remove button button--solid--danger">&#10539</button>
             `;
 
@@ -41,8 +41,6 @@ export function initFileUpload(fileInputId, fileListId, dropZoneId) {
     }
 
     function isAllowedFileType(file) {
-        // const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', ...];
-        // return allowedTypes.includes(file.type) || file.name.match(/\.(jpg|jpeg|png|pdf|doc|docx)$/i);
         return true;
     }
 
@@ -51,6 +49,13 @@ export function initFileUpload(fileInputId, fileListId, dropZoneId) {
         if (newFiles.length === 0) return;
 
         currentFiles = [...currentFiles, ...newFiles];
+        updateFileList();
+        syncFileInput();
+    }
+
+    function addFile(file) {
+        if (!file) return;
+        currentFiles = [...currentFiles, file];
         updateFileList();
         syncFileInput();
     }
@@ -66,20 +71,22 @@ export function initFileUpload(fileInputId, fileListId, dropZoneId) {
         handleFiles(e.target.files);
     });
 
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
+    if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
 
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('dragover');
-    });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        handleFiles(e.dataTransfer.files);
-    });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+    }
 
-    return { clearFiles };
+    return { clearFiles, addFile, handleFiles };
 }

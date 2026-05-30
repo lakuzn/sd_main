@@ -28,7 +28,7 @@ export async function fetchFilterOptions() {
         return {
             categories: ['Оборудование', 'ПО', 'Почта', 'Документооборот'],
             priorities: ['Высокий', 'Средний', 'Низкий'],
-            statuses: ['В работе', 'Новая', 'Решена', 'Ожидает ответа', 'В обработке', 'Требуется проверка']
+            statuses: ['В работе', 'Новая', 'Решена', 'Ожидает ответа', 'В обработке', 'Требует проверки']
         }
     };
 }
@@ -159,6 +159,84 @@ export async function fetchChangeTicketStatus(newStatus, buttonElement,
     }
 }
 
+export async function fetchCloneTicket(ticketId, buttonElement) {
+    if (buttonElement && buttonElement.disabled) return null;
+
+    const originalText = buttonElement ? buttonElement.textContent : '';
+    const csrfToken = getCSRFToken();
+
+    try {
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Создание...';
+        }
+
+        const response = await fetch(`/api/ticket/${ticketId}/clone`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка сервера');
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Ошибка создания похожей заявки:', error);
+        alert(`Не удалось создать заявку: ${error}`);
+        return null;
+    } finally {
+        if (buttonElement) {
+            buttonElement.disabled = false;
+            buttonElement.textContent = originalText;
+        }
+    }
+}
+
+export async function fetchDeleteTicket(ticketId, buttonElement) {
+    if (buttonElement && buttonElement.disabled) return null;
+
+    const originalText = buttonElement ? buttonElement.textContent : '';
+    const csrfToken = getCSRFToken();
+
+    try {
+        if (buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Удаление...';
+        }
+
+        const response = await fetch(`/api/ticket/${ticketId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка сервера');
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Ошибка удаления заявки:', error);
+        alert(`Не удалось удалить заявку: ${error}`);
+        return null;
+    } finally {
+        if (buttonElement) {
+            buttonElement.disabled = false;
+            buttonElement.textContent = originalText;
+        }
+    }
+}
+
 export async function fetchChangeTicketParams(params, buttonElement) {
     if (!buttonElement || buttonElement.disabled) return;
 
@@ -231,4 +309,3 @@ export async function fetchReadNotifications(buttonElement, badge, unreadItems) 
         buttonElement.disabled = false;
     }
 }
-

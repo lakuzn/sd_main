@@ -2720,3 +2720,21 @@ body.body-login {
 @media screen and (max-width: 480px) {}
 
 @media screen and (max-width: 375px) {}
+.content__card--review {
+    border-color: var(--color-success-400);
+}
+
+.card__new-message {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-primary-400);
+    flex-shrink: 0;
+}
+
+.message-content__position {
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    margin: 0;
+}

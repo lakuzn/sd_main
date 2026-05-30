@@ -1,19 +1,19 @@
-import { fetchChangeTicketStatus } from "./api.js";
+import { fetchChangeTicketStatus, fetchCloneTicket, fetchDeleteTicket } from "./api.js";
 import { initComments } from "../modules/chat.js";
 
 export function initTicketActions() {
     const reopenCardButtons = document.querySelectorAll('.js-reopen-card-btn');
     reopenCardButtons.forEach(button => {
         button.addEventListener('click', () => {
-            const ticketId = button.value;
+            const ticketId = button.dataset.ticketId;
             showConfirmModal({
                 title: 'Создать похожую?',
-                message: 'Будет создана заявка с сохранением описания и категорий.',
+                message: 'Будет создана новая заявка с сохранением описания и категорий.',
                 confirmText: 'Да, создать заявку',
                 cancelText: 'Отмена',
                 onConfirm: async () => {
-                    const newStatus = await fetchChangeTicketStatus('Новая', button, ticketId);
-                    if (newStatus) {
+                    const result = await fetchCloneTicket(ticketId, button);
+                    if (result && result.ticket_id) {
                         const card = document.getElementById(`ticket-card-${ticketId}`);
                         if (card) {
                             card.style.opacity = '0';
@@ -47,20 +47,55 @@ export function initTicketActions() {
 
     if (buttonUnResolved) {
         buttonUnResolved.addEventListener('click', () => {
+            const ticketId = window.currentTicket?.id;
             showConfirmModal({
                 title: 'Создать похожую?',
-                message: 'Будет создана заявка с сохранением описания и категорий.',
+                message: 'Будет создана новая заявка с сохранением описания и категорий.',
                 confirmText: 'Да, создать заявку',
                 cancelText: 'Отмена',
                 onConfirm: async () => {
-                    const newStatus = await fetchChangeTicketStatus('Новая', buttonUnResolved);
-                    if (newStatus == 'Новая') {
-                        setActiveMode();
+                    const result = await fetchCloneTicket(ticketId, buttonUnResolved);
+                    if (result && result.ticket_id) {
+                        window.location.href = `/ticket/${result.ticket_id}`;
                     }
                 }
             });
         });
     }
+
+    const buttonDeleteTicket = document.getElementById('buttonDeleteTicket');
+    if (buttonDeleteTicket) {
+        buttonDeleteTicket.addEventListener('click', () => {
+            const modal = document.getElementById('modalDeleteTicket');
+            if (modal) modal.style.display = 'flex';
+        });
+
+        const modal = document.getElementById('modalDeleteTicket');
+        if (modal) {
+            const overlay = modal.querySelector('.modal__overlay');
+            const cancelBtn = modal.querySelector('.modal__cancel');
+            const closeBtn = modal.querySelector('.modal__close');
+            const confirmBtn = modal.querySelector('.modal__confirm');
+
+            const closeModal = () => modal.style.display = 'none';
+
+            if (overlay) overlay.addEventListener('click', closeModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+            if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', async () => {
+                    const ticketId = window.currentTicket?.id;
+                    closeModal();
+                    const result = await fetchDeleteTicket(ticketId, confirmBtn);
+                    if (result && result.status === 'success') {
+                        window.location.href = '/';
+                    }
+                });
+            }
+        }
+    }
+
     const ticketId = window.currentTicket?.id || 1;
     if (!ticketId) return;
 
@@ -183,9 +218,9 @@ export function showInviteModal(ticketId) {
                 </button>
             </div>
             <p class="modal__message">Выберите сотрудника, которого хотите пригласить к заявке:</p>
-            
-            <input type="text" name="" class="search__input" placeholder="Начните вводить..." value="">     
-            
+
+            <input type="text" name="" class="search__input" placeholder="Начните вводить..." value="">
+
             <ul class="modal__invite-executors"></ul>
 
             <div class="modal__actions">
@@ -263,20 +298,19 @@ export function showAddCommentModal(ticketId) {
 
     initComments();
 }
+
 export function SearchExecutors() {
-    const searchInput = document.querySelector('#dropdownTicketExecutorList .search__input');
-    const executorItems = document.querySelectorAll('.js-executor-item');
+    const searchInput = document.getElementById('executorSearch');
+    const executorItems = document.querySelectorAll('#dropdownTicketExecutorList .js-executor-item');
     if (searchInput) {
         searchInput.addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase().trim();
             executorItems.forEach(item => {
-                const userName = item.getAttribute('data-search-name');
-                if (userName && userName.includes(searchTerm)) {
-                    item.style.display = 'flex';
-                }
-                else {
-                    item.style.display = 'none';
-                }
+                const label = item.querySelector('.ticket-person__label');
+                const userName = label ? label.textContent.toLowerCase() : '';
+                const dropdownItem = item.closest('.dropdown-item');
+                if (dropdownItem)
+                    dropdownItem.style.display = userName.includes(searchTerm) ? '' : 'none';
             });
         });
     }

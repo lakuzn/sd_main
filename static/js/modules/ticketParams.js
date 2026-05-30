@@ -1,5 +1,5 @@
 import { fetchTicketParamsOptions, fetchChangeTicketParams } from "./api.js"
-import { createCategoryCheckboxes } from "./categoryCheckboxes.js";
+import { SearchExecutors } from "./ticketActions.js";
 
 function dropdownChangeTicketPriority(buttonId, listId, options, initialValue, onChange) {
     const list = document.getElementById(listId)
@@ -303,8 +303,19 @@ function initExecutors() {
 
             updateTicketExecutors();
             markAsChanged('executor_ids', [...selectedExecutors]);
+
+            // Взаимное исключение: если выбраны исполнители — сбрасываем отделы
+            if (selectedExecutors.length > 0) {
+                selectedDepartments = [];
+                updateDeptDropdownSelection();
+                updateTicketDepartments();
+                delete changedParams['department_ids'];
+                changedParams['department_ids'] = [];
+            }
         });
     });
+
+    SearchExecutors();
 }
 
 async function initPriority() {
@@ -319,30 +330,64 @@ async function initPriority() {
     );
 }
 
-async function initCategories() {
-    const options = await fetchTicketParamsOptions();
+function initCategories() {
+    selectedCategories = parseToJson(window.currentTicket?.category_ids || []);
 
-    categoryCheckboxes = createCategoryCheckboxes(
-        'dropdownTicketCategoryList',
-        options.categories,
-        parseToJson(window.currentTicket?.category_ids || []),
-        (newIds) => {
+    const categoryItems = document.querySelectorAll('#dropdownTicketCategoryList .js-category-item');
+    categoryItems.forEach(item => {
+        const catId = parseInt(item.dataset.id);
+        if (selectedCategories.includes(catId)) {
+            item.classList.add('selected');
+        }
+
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (isNaN(catId)) return;
+
+            const index = selectedCategories.indexOf(catId);
+            if (index !== -1) {
+                selectedCategories.splice(index, 1);
+                item.classList.remove('selected');
+            } else {
+                selectedCategories.push(catId);
+                item.classList.add('selected');
+            }
+
+            updateTicketCategories();
+
             const originalIds = parseToJson(window.currentTicket?.category_ids || []);
-            const isChanged = JSON.stringify(originalIds.sort()) !== JSON.stringify([...newIds].sort());
+            const isChanged = JSON.stringify([...originalIds].sort((a, b) => a - b))
+                !== JSON.stringify([...selectedCategories].sort((a, b) => a - b));
 
             if (isChanged)
-                changedParams['categories'] = [...newIds];
+                changedParams['categories'] = [...selectedCategories];
             else
                 delete changedParams['categories'];
 
             const hasChanges = Object.keys(changedParams).length > 0;
-
             if (applyButton) applyButton.style.display = hasChanges ? 'flex' : 'none';
             if (cancelButton) cancelButton.style.display = hasChanges ? 'flex' : 'none';
+        });
+    });
 
-        },
-        ticketCategoriesContainer,
-    )
+    const searchInput = document.getElementById('categorySearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function (e) {
+            const term = e.target.value.toLowerCase().trim();
+            categoryItems.forEach(item => {
+                const label = item.querySelector('.ticket-person__label');
+                const text = label ? label.textContent.toLowerCase() : '';
+                const dropdownItem = item.closest('.dropdown-item');
+                if (dropdownItem)
+                    dropdownItem.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    }
+}
+
+function updateTicketCategories() {
+    if (!ticketCategoriesContainer) return;
 }
 
 function initDocumentNumber() {
@@ -427,8 +472,30 @@ function initDepartments() {
 
             updateTicketDepartments();
             markAsChanged('department_ids', [...selectedDepartments]);
+
+            // Взаимное исключение: если выбраны отделы — сбрасываем исполнителей
+            if (selectedDepartments.length > 0) {
+                selectedExecutors = [];
+                updateDropdownSelection();
+                updateTicketExecutors();
+                changedParams['executor_ids'] = [];
+            }
         });
     });
+
+    const searchInput = document.getElementById('deptSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function (e) {
+            const term = e.target.value.toLowerCase().trim();
+            deptItemsList.forEach(item => {
+                const label = item.querySelector('.ticket-person__label');
+                const text = label ? label.textContent.toLowerCase() : '';
+                const dropdownItem = item.closest('.dropdown-item');
+                if (dropdownItem)
+                    dropdownItem.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    }
 }
 
 async function applyChanges() {
@@ -439,18 +506,43 @@ async function applyChanges() {
         for (const [field, newValue] of Object.entries(changedParams))
             originalParams[field] = newValue;
 
+        // Обновляем window.currentTicket без перезагрузки страницы
+        if (window.currentTicket) {
+            if (changedParams.priority !== undefined)
+                window.currentTicket.priority = changedParams.priority;
+            if (changedParams.executor_ids !== undefined)
+                window.currentTicket.executor_ids = JSON.stringify(changedParams.executor_ids);
+            if (changedParams.department_ids !== undefined)
+                window.currentTicket.department_ids = JSON.stringify(changedParams.department_ids);
+            if (changedParams.categories !== undefined)
+                window.currentTicket.category_ids = JSON.stringify(changedParams.categories);
+        }
+
         resetAllFields();
-        window.location.reload();
+        // Кнопки уже скрыты в resetAllFields — перезагрузка не нужна
+        // Статус и прочие изменения придут через socket ticket_params_changed
     }
 }
 
 function resetAllFields() {
     if (priorityDropdown && priorityDropdown.reset) priorityDropdown.reset();
-    if (categoryCheckboxes && categoryCheckboxes.reset) categoryCheckboxes.reset();
 
     selectedExecutors = originalParams.executor_ids ? [...originalParams.executor_ids] : [];
     updateTicketExecutors();
     updateDropdownSelection();
+
+    selectedCategories = parseToJson(window.currentTicket?.category_ids || []);
+    const categoryItems = document.querySelectorAll('#dropdownTicketCategoryList .js-category-item');
+    categoryItems.forEach(item => {
+        const catId = parseInt(item.dataset.id);
+        selectedCategories.includes(catId)
+            ? item.classList.add('selected')
+            : item.classList.remove('selected');
+    });
+
+    selectedDepartments = originalParams.department_ids ? [...originalParams.department_ids] : [];
+    updateDeptDropdownSelection();
+    updateTicketDepartments();
 
     if (docNumberInput) docNumberInput.value = originalParams.document_number || '';
     if (deadlineInput) deadlineInput.value = originalParams.desired_deadline || '';
@@ -466,13 +558,11 @@ function disableEditFields() {
 
     if (docNumberInput) docNumberInput.disabled = true;
     if (deadlineInput) deadlineInput.disabled = true;
-
-
 }
 
 let priorityDropdown = null;
-let categoryCheckboxes = null;
 let selectedExecutors = [];
+let selectedCategories = [];
 let selectedDepartments = [];
 let changedParams = {};
 let originalParams = {};
@@ -493,7 +583,7 @@ export async function initTicketParams() {
     if (canEditTicket) {
         originalParams = {
             priority: window.currentTicket?.priority || null,
-            categories: window.currentTicket?.category_ids || [],
+            categories: parseToJson(window.currentTicket?.category_ids || []),
             executor_ids: parseToJson(window.currentTicket?.executor_ids || []),
             department_ids: parseToJson(window.currentTicket?.department_ids || []),
             document_number: document.getElementById('documentNumber')?.value.trim(),
@@ -501,7 +591,7 @@ export async function initTicketParams() {
         }
 
         await initPriority();
-        await initCategories();
+        initCategories();
         initDepartments();
         initExecutors();
         initDocumentNumber();

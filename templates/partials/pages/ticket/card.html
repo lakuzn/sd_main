@@ -1,6 +1,6 @@
 <li class="content__card-item" id="ticket-card-{{ticket.id}}">
     <a href="{{url_for('tickets.view_ticket', ticket_id=ticket.id) }}"
-        class="content__card {% if ticket.status != 'Решена' and ticket.desired_deadline and ticket.desired_deadline | is_past %}content__card--overdue{% endif %}">
+        class="content__card {% if ticket.status != 'Решена' and ticket.desired_deadline and ticket.desired_deadline | is_past %}content__card--overdue{% elif ticket.status == 'Требует проверки' %}content__card--review{% endif %}">
         <div class="card__header">
             <p class="card__index">№ {{ ticket.id }}</p>
             {% include "partials/pages/ticket/status.html" %}
@@ -53,7 +53,7 @@
     </a>
 
     {% if ticket.status == 'Решена' %}
-    <button type="button" value="{{ ticket.id }}" class="button--solid card__reopen js-reopen-card-btn">
+    <button type="button" data-ticket-id="{{ ticket.id }}" class="button--solid card__reopen js-reopen-card-btn">
         Создать похожую
     </button>
     {% endif %}

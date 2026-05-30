@@ -71,3 +71,19 @@
     </div>
 </section>
 {% endblock %}
+
+{% block script %}
+<script>
+    // Запрещаем выбирать уже прошедшую дату в качестве дедлайна
+    (function () {
+        var deadlineInput = document.getElementById('desired_deadline');
+        if (deadlineInput) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            deadlineInput.min = yyyy + '-' + mm + '-' + dd;
+        }
+    })();
+</script>
+{% endblock %}
