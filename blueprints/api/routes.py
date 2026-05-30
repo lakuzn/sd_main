@@ -24,7 +24,8 @@ def get_filter_options():
                 "Новая",
                 "В работе",
                 "Ожидает ответа",
-                "Требуется проверка" "В обработке",
+                "Требует проверки",
+                "В обработке",
                 "Решена",
             ],
         }
@@ -37,8 +38,15 @@ def get_filter_options():
 def api_ticket_reply(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
+    # Проверка доступа к заявке
+    if not TicketService.can_access_ticket(ticket, current_user):
+        return (
+            jsonify({"status": "error", "message": "У вас нет доступа к этой заявке"}),
+            403,
+        )
+
     content = request.form.get("content", "").strip()
-    files = request.files.getlist("attachments")  # Ловим файлы из формы
+    files = request.files.getlist("attachments")
 
     if not content and not (files and files[0].filename):
         return (
@@ -59,29 +67,20 @@ def api_ticket_reply(ticket_id):
             400,
         )
 
-    if current_user.role == "executor":
-        executor_ids = [ex.id for ex in ticket.executors]
-        if current_user.id not in executor_ids:
+    # Классификатор может писать в чат только пока заявка у него
+    # (статус Новая/В обработке), ИЛИ если он также является исполнителем
+    if current_user.role == "classifier":
+        is_executor = current_user in ticket.executors
+        if not is_executor and ticket.status not in ["Новая", "В обработке"]:
             return (
                 jsonify(
-                    {"status": "error", "message": "У вас нет доступа к этой заявке"}
+                    {
+                        "status": "error",
+                        "message": "Классификатор не может писать в чат на данном этапе",
+                    }
                 ),
                 403,
             )
-
-    if current_user.role == "classifier" and ticket.status not in [
-        "Новая",
-        "В обработке",
-    ]:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "Классификатор не может писать в чат на данном этапе",
-                }
-            ),
-            403,
-        )
 
     TicketService.create_message(
         ticket_id=ticket_id,
@@ -115,39 +114,74 @@ def api_ticket_change_status(ticket_id):
         "Решена",
         "Ожидает ответа",
         "В обработке",
-        "Требуется проверка",
+        "Требует проверки",
     ]
     if new_status not in allowed:
         return jsonify({"error": "Invalid status"}), 400
 
+    old_status = ticket.status
     TicketService.change_status(ticket, new_status, current_user)
 
-    if new_status == "Решена":
-        NotificationService.create_notification(
-            user_id=ticket.applicant_id,
-            message=f"Ваша заявка №{ticket.id} закрыта.",
-            ticket_id=ticket.id,
-        )
-    elif new_status == "В обработке":
-        NotificationService.create_notification(
-            user_id=ticket.applicant_id,
-            message=f"Ваша заявка №{ticket.id} в обработке.",
-            ticket_id=ticket.id,
-        )
-    elif new_status == "В работе":
-        NotificationService.create_notification(
-            user_id=ticket.applicant_id,
-            message=f"Ваша заявка №{ticket.id} передана в работу.",
-            ticket_id=ticket.id,
-        )
-    elif new_status == "Ожидает ответа":
-        NotificationService.create_notification(
-            user_id=ticket.applicant_id,
-            message=f"Исполнитель ожидает от Вас ответа по заявке №{ticket.id}.",
-            ticket_id=ticket.id,
-        )
-    flash("Заявка отмечена как решенная", "success")
+    # Уведомления только если статус действительно изменился
+    if old_status != new_status:
+        if new_status == "Решена":
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Ваша заявка №{ticket.id} закрыта.",
+                ticket_id=ticket.id,
+            )
+        elif new_status == "В обработке":
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Ваша заявка №{ticket.id} в обработке.",
+                ticket_id=ticket.id,
+            )
+        elif new_status == "В работе":
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Ваша заявка №{ticket.id} передана в работу.",
+                ticket_id=ticket.id,
+            )
+        elif new_status == "Ожидает ответа":
+            NotificationService.create_notification(
+                user_id=ticket.applicant_id,
+                message=f"Исполнитель ожидает от Вас ответа по заявке №{ticket.id}.",
+                ticket_id=ticket.id,
+            )
+
     return jsonify({"status": "success", "new status": new_status})
+
+
+# Создать похожую заявку (старая остаётся в архиве без изменений)
+@api_bp.route("/ticket/<int:ticket_id>/clone", methods=["POST"])
+@login_required
+def api_clone_ticket(ticket_id):
+    ticket = Ticket.query.get_or_404(ticket_id)
+
+    if current_user.id != ticket.applicant_id and current_user.role != "admin":
+        return (
+            jsonify({"status": "error", "message": "У вас нет прав для этого действия"}),
+            403,
+        )
+
+    new_ticket = TicketService.clone_ticket(ticket_id, current_user)
+
+    return jsonify({
+        "status": "success",
+        "ticket_id": new_ticket.id,
+    })
+
+
+# Мягкое удаление заявки (скрывается от пользователей, остаётся в БД)
+@api_bp.route("/ticket/<int:ticket_id>/delete", methods=["POST"])
+@login_required
+def api_delete_ticket(ticket_id):
+    success, result = TicketService.delete_ticket(ticket_id, current_user)
+
+    if not success:
+        return jsonify({"status": "error", "message": result}), 403
+
+    return jsonify({"status": "success"})
 
 
 @api_bp.route("/notifications", methods=["GET"])
@@ -159,7 +193,7 @@ def get_notifications():
 
 @api_bp.route("/notifications/<int:notif_id>/read", methods=["POST"])
 @login_required
-def read_notifications(notif_id):
+def read_notification(notif_id):
     NotificationService.mark_as_read(notif_id, current_user.id)
     return jsonify({"success": True})
 
@@ -178,43 +212,43 @@ def read_all_notifications():
 def api_comment_reply(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
-    comment = request.form.get("content", "").strip()
+    # Проверка доступа
+    if not TicketService.can_access_ticket(ticket, current_user):
+        return (
+            jsonify({"status": "error", "message": "У вас нет доступа к этой заявке"}),
+            403,
+        )
 
-    if not comment:
+    comment_text = request.form.get("content", "").strip()
+    files = request.files.getlist("attachments")
+
+    if not comment_text and not (files and files[0].filename):
         return (
             jsonify(
-                {"status": "error", "comment": "Нельзя отправить пустой комментарий"}
+                {"status": "error", "message": "Нельзя отправить пустой комментарий"}
             ),
             400,
         )
 
-    if current_user.role == "executor":
-        executor_ids = [ex.id for ex in ticket.executors]
-        if current_user.id not in executor_ids:
+    # Классификатор может добавлять комментарии пока заявка у него
+    # ИЛИ если он также является исполнителем
+    if current_user.role == "classifier":
+        is_executor = current_user in ticket.executors
+        if not is_executor and ticket.status not in ["Новая", "В обработке"]:
             return (
                 jsonify(
-                    {"status": "error", "message": "У вас нет доступа к этой заявке"}
+                    {
+                        "status": "error",
+                        "message": "Классификатор не может добавлять комментарии на данном этапе",
+                    }
                 ),
                 403,
             )
 
-    if current_user.role == "classifier" and ticket.status not in [
-        "Новая",
-        "В обработке",
-    ]:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "Классификатор не может добавлять комментарии на данном этапе",
-                }
-            ),
-            403,
-        )
-
     TicketService.create_comment(
         ticket_id=ticket_id,
-        comment=comment,
+        comment=comment_text,
+        attachments=files,
     )
 
     return jsonify({"status": "success"})
@@ -263,7 +297,6 @@ def change_ticket_params(ticket_id):
 
 
 # Параметры заявки
-# Убрать "user"
 @api_bp.route("/ticket/params", methods=["GET"])
 @login_required
 @role_required(["classifier", "admin", "head", "executor"])
@@ -277,7 +310,7 @@ def get_ticket_params():
         "Ожидает ответа",
         "В обработке",
         "Решена",
-        "Требуется проверка",
+        "Требует проверки",
     ]
 
     executors = [

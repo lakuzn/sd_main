@@ -70,6 +70,10 @@ class Ticket(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
+    # Мягкое удаление (заявка скрывается от пользователей, но остаётся в БД)
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     # Внешние ключи (кто создал и на кого назначена)
     applicant_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 

@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from app.blueprints.tickets import tickets_bp
 from app.forms.ticket_forms import *
@@ -11,9 +11,16 @@ from app.utils.forms import flash_form_errors
 @tickets_bp.route("/new_ticket", methods=["GET", "POST"])
 @login_required
 def new_ticket():
+    from datetime import date, datetime
+
     form = TicketForm()
 
     if form.validate_on_submit():
+        # Проверка: нельзя создать уже просроченную заявку
+        if form.desired_deadline.data and form.desired_deadline.data < date.today():
+            flash("Нельзя создать заявку с уже истёкшим сроком.", "warning")
+            return render_template("tickets/new_ticket.html", form=form)
+
         TicketService.create_ticket(
             applicant_id=current_user.id,
             description=form.description.data.strip(),
@@ -34,6 +41,16 @@ def new_ticket():
 @tickets_bp.route("/<int:ticket_id>", methods=["GET"])
 @login_required
 def view_ticket(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+
+    # Скрытые (удалённые) заявки видит только admin
+    if ticket.is_deleted and current_user.role != "admin":
+        abort(404)
+
+    # Проверка прав доступа к заявке
+    if not TicketService.can_access_ticket(ticket, current_user):
+        abort(403)
+
     form = None
 
     if current_user.role in ["classifier", "admin", "head"]:
