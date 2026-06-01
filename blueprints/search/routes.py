@@ -12,10 +12,11 @@ def results():
     tickets = []
     articles_by_category = {}
 
+    staff_only = current_user.role != "user"
     if query_text:
-        tickets = SearchService.search_tickets(query_text, current_user)
-        articles_by_category = SearchService.search_articles_grouped_by_category(
-            query_text
+        tickets, _ = SearchService.search_tickets(query_text, current_user)
+        articles_by_category, _ = SearchService.search_articles_grouped_by_category(
+            query_text, staff_only=staff_only
         )
 
     return render_template(
@@ -37,10 +38,11 @@ def filter():
     tickets_count = 0
     articles_count = 0
 
+    staff_only = current_user.role != "user"
     if query_text:
         tickets, tickets_count = SearchService.search_tickets(query_text, current_user)
         articles_by_category, articles_count = (
-            SearchService.search_articles_grouped_by_category(query_text)
+            SearchService.search_articles_grouped_by_category(query_text, staff_only=staff_only)
         )
 
     html_tickets = ""

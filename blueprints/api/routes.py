@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.blueprints.api import api_bp
 from app.services.ticket_service import TicketService
 from app.services.notification_service import NotificationService
-from app.models import Ticket, Notification, Category, User
+from app.models import Ticket, Notification, Category, User, Department
 from app.extensions import socketio
 from app.utils.decorators import role_required
 
@@ -160,16 +160,20 @@ def api_clone_ticket(ticket_id):
 
     if current_user.id != ticket.applicant_id and current_user.role != "admin":
         return (
-            jsonify({"status": "error", "message": "У вас нет прав для этого действия"}),
+            jsonify(
+                {"status": "error", "message": "У вас нет прав для этого действия"}
+            ),
             403,
         )
 
     new_ticket = TicketService.clone_ticket(ticket_id, current_user)
 
-    return jsonify({
-        "status": "success",
-        "ticket_id": new_ticket.id,
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "ticket_id": new_ticket.id,
+        }
+    )
 
 
 # Мягкое удаление заявки (скрывается от пользователей, остаётся в БД)
@@ -318,12 +322,15 @@ def get_ticket_params():
         for u in User.query.filter_by(role="executor").all()
     ]
 
+    departments = [{"id": d.id, "name": d.name} for d in Department.query.all()]
+
     return jsonify(
         {
             "categories": categories_list,
             "priorities": priorities,
             "statuses": statuses,
             "executors": executors,
+            "departments": departments,
         }
     )
 

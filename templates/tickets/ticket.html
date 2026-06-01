@@ -3,7 +3,7 @@
 {% block title %}Заявка №{{ ticket.id }}{% endblock %}
 
 {% block content %}
-<section aria-labelledby="ticket" class="section ticket">
+<section aria-labelledby="ticket" class="section ticket" id="ticket-page" data-ticket-id="{{ ticket.id }}">
 
     <div class="section__content">
         <div class="content__child">
@@ -15,6 +15,9 @@
                     </h1>
 
                     {% include "partials/pages/ticket/status.html" %}
+
+                    <span id="ticketNewMessage" class="card__new-message" title="Есть новые сообщения"
+                        style="display: none;"></span>
 
                     {% if current_user.role in ['head', 'admin'] or (current_user.role == 'classifier' and ticket.status
                     in ['Новая', 'В обработке']) %}
@@ -33,6 +36,19 @@
                     <input type="text" name="documentNumber" id="documentNumber"
                         value="{{ticket.document_number if ticket.document_number else ''}}"
                         placeholder="Ввести номер документа" class="button button--outline button--sm">
+                    {% else %}
+
+                    {% if current_user.role != 'user' %}
+                    <button type="button" class="button" disabled aria-label="Приоритет">
+                        {% include "partials/pages/ticket/priority.html" %}
+                    </button>
+                    {% endif %}
+
+                    {% if current_user.role != 'user' and ticket.document_number %}
+                    <input type="text" value="{{ ticket.document_number }}" title="Номер документа"
+                        class="button button--outline button--sm" disabled>
+                    {% endif %}
+
                     {% endif %}
 
                 </div>
@@ -93,6 +109,7 @@
                             {% if ticket.executors %}
                             {% for executor in ticket.executors %}
                             <div class="ticket-person">
+                                <!-- <img src="" alt=""> -->
                                 <span class="ticket-person__img ticket-person__img--executor">{% set name_parts =
                                     executor.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
                                     name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}</span>
@@ -152,6 +169,7 @@
                         <div id="dropdownTicketExecutorUser" class="ticket-executors button button--outline button--sm">
                             {% for executor in ticket.executors %}
                             <div class="ticket-person">
+                                <!-- <img src="" alt=""> -->
                                 <span class="ticket-person__img ticket-person__img--executor">{% set name_parts =
                                     executor.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
                                     name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}</span>
@@ -241,18 +259,6 @@
                                     <input type="text" id="categorySearch" class="search__input"
                                         placeholder="Начните вводить..." value="">
                                 </div>
-                                <div class="dropdown-list">
-                                    {% for cat in categories %}
-                                    <div class="dropdown-item">
-                                        <div data-id="{{ cat.id }}"
-                                            class="ticket-person button js-category-item{% for assigned in ticket.categories %}{% if assigned.id == cat.id %} selected{% endif %}{% endfor %}">
-                                            <div class="ticket-person__info">
-                                                <p class="ticket-person__label">{{ cat.name }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
                             </div>
                         </div>
 
@@ -280,40 +286,34 @@
                 {% if current_user.role in ['head', 'admin'] or (current_user.role == 'classifier' and ticket.status in
                 ['Новая', 'В обработке']) %}
                 <div class="ticket-block">
-                    <div class="dropdown-relative">
-                        <div id="dropdownTicketDept"
-                            class="ticket-executors ticket-executors--select button button--outline button--sm">
-                            {% if ticket.departments %}
-                            {% for dept in ticket.departments %}
-                            <div class="ticket-person">
-                                <p class="ticket-person__label">{{ dept.name }}</p>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            <div class="ticket-person">
-                                <p class="ticket-person__label">Отдел не назначен</p>
-                            </div>
-                            {% endif %}
-                        </div>
+                    <div class="ticket-departments">
+                        <p class="ticket-departments__label">Отделы:</p>
 
-                        <div id="dropdownTicketDeptList" class="dropdown dropdown-ticket__person"
-                            style="display: none;">
-                            <div class="dropdown-header">
-                                <p class="dropdown-header__title">Отдел</p>
-                                <input type="text" id="deptSearch" class="search__input"
-                                    placeholder="Начните вводить..." value="">
-                            </div>
-                            <div class="dropdown-list">
-                                {% for dept in departments %}
-                                <div class="dropdown-item">
-                                    <div data-id="{{ dept.id }}"
-                                        class="ticket-person button js-department-item{% for assigned in ticket.departments %}{% if assigned.id == dept.id %} selected{% endif %}{% endfor %}">
-                                        <div class="ticket-person__info">
-                                            <p class="ticket-person__label">{{ dept.name }}</p>
-                                        </div>
-                                    </div>
+                        <div class="dropdown-relative">
+                            <div id="dropdownTicketDept" class="departments-select button button--outline">
+                                {% if ticket.departments %}
+                                {% for dept in ticket.departments %}
+                                <div id="{{dept.id}}" class="departments-item">
+                                    <p class="departments-item__label">{{ dept.name }}</p>
                                 </div>
                                 {% endfor %}
+                                {% else %}
+                                <div class="departments-item">
+                                    <p class="departments-item__label">Не указаны</p>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div id="dropdownTicketDeptList" class="dropdown dropdown-ticket__person"
+                                style="display: none;">
+                                <div class="dropdown-header">
+                                    <div class="dropdown-description">
+                                        <p class="dropdown-header__title">Отделы</p>
+                                        <p class="dropdown-header__subtitle">Можно выбрать несколько</p>
+                                    </div>
+                                    <input type="text" id="deptSearch" class="search__input"
+                                        placeholder="Начните вводить..." value="">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -321,7 +321,8 @@
                 {% endif %}
 
                 {% if (current_user.role != 'user') %}
-                <div class="ticket-block ticket-block--comments" {% if not comments %}style="display: none;"{% endif %}>
+                <div class="ticket-block ticket-block--comments" {% if not comments %}style="display: none;" {% endif
+                    %}>
                     <button type="button" id="buttonSeeComments"
                         class="comments__button button button--sm button--nowrap">
                         Внутр. комм. <span class="comments__count">{{comments | length}}</span>
@@ -373,8 +374,7 @@
                     </form>
                     {% endif %}
 
-                    {% if current_user.role in ['executor', 'head'] and ticket.status in ['В работе', 'Ожидает ответа']
-                    and current_user in ticket.executors %}
+                    {% if current_user in ticket.executors and ticket.status in ['В работе', 'Ожидает ответа'] %}
                     <form method="POST" action="{{ url_for('tickets.request_review', ticket_id=ticket.id) }}"
                         style="display: inline;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -419,8 +419,7 @@
                     {% endif %}
 
                     {% if current_user.role in ['head', 'admin'] or (current_user.role == 'classifier' and ticket.status
-                    in ['Новая', 'В обработке']) or (current_user.role == 'executor' and current_user in
-                    ticket.executors) %}
+                    in ['Новая', 'В обработке']) or (current_user in ticket.executors) %}
                     <div class="dropdown-relative">
                         <button id="dropdownTicketMore" class="ticket-actions__more button button--sm button--outline">
                             Ещё
@@ -446,9 +445,10 @@
                     </div>
                     {% endif %}
 
-                    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Решена' %}
+                    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status ==
+                    'Решена' %}
                     <button type="button" id="buttonDeleteTicket"
-                        class="button button--sm button--outline" style="color: var(--color-danger-500); border-color: var(--color-danger-400);">
+                        class="ticket-actions__resolved button button--sm button--solid--danger">
                         Удалить заявку
                     </button>
                     {% endif %}
@@ -547,8 +547,8 @@
 
                 <form id="chat-form" class="chat-form" enctype="multipart/form-data" {% if ticket.status=='Решена' or
                     (current_user.role=='executor' and current_user not in ticket.executors) or
-                    (current_user.role=='classifier' and current_user not in ticket.executors and ticket.status not in ['Новая', 'В обработке' ]) %}
-                    style="display: none;" {% endif %}>
+                    (current_user.role=='classifier' and current_user not in ticket.executors and ticket.status not in
+                    ['Новая', 'В обработке' ]) %} style="display: none;" {% endif %}>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <ul id="chat-files" class="form-files" style="display: none;"></ul>
@@ -602,6 +602,8 @@
                                 {{comment.text | urlize(target="_blank")}}
                             </p>
                         </div>
+                        {% if comment.ticket.attachments %}
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -630,27 +632,28 @@
 </div>
 {% endif %}
 
-<!-- Модальное окно подтверждения удаления заявки -->
+{% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Решена' %}
 <div id="modalDeleteTicket" class="modal" style="display: none;">
     <div class="modal__overlay"></div>
     <div class="modal__content">
         <div class="modal__header">
             <h3 class="modal__title h3">Удалить заявку?</h3>
-            <button type="button" aria-label="Закрыть окно" class="button button--solid modal__close" id="modalDeleteClose">
+            <button type="button" aria-label="Закрыть окно" class="button button--solid modal__close">
                 <span class="sr-only">Закрыть</span>
                 ⤫
             </button>
         </div>
-        <p class="modal__message">Вы точно хотите удалить заявку? В этом случае Вы не сможете просмотреть информацию по ней.</p>
+        <p class="modal__message">
+            Вы точно хотите удалить заявку? В этом случае Вы не сможете просмотреть информацию по ней.
+        </p>
+
         <div class="modal__actions">
-            <button type="button" class="button button--outline button--md" id="modalDeleteCancel">Отмена</button>
-            <button type="button" class="button button--md" id="modalDeleteConfirm"
-                style="background-color: var(--color-danger-500); color: #fff; border-color: var(--color-danger-600);">
-                Да, удалить
-            </button>
+            <button type="button" class="button button--outline button--md modal__cancel">Отмена</button>
+            <button type="button" class="button button--solid--danger button--md modal__confirm">Удалить</button>
         </div>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -668,6 +671,18 @@
 
     window.currentUserId = "{{ current_user.id }}";
     window.currentUserRole = "{{ current_user.role }}";
+
+    // Запрещаем классификатору ставить дату раньше сегодняшней
+    (function () {
+        var deadlineInput = document.getElementById('ticketTime');
+        if (deadlineInput && !deadlineInput.disabled) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            deadlineInput.min = yyyy + '-' + mm + '-' + dd;
+        }
+    })();
 </script>
 
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>

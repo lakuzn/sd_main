@@ -10,7 +10,8 @@ from app.forms.kb_forms import ArticleForm
 @kb_bp.route("/")
 @login_required
 def catalog():
-    grouped_articles = KBService.get_all_articles_grouped_by_category()
+    staff_only = current_user.role != "user"
+    grouped_articles = KBService.get_all_articles_grouped_by_category(staff_only=staff_only)
     return render_template("kb/catalog.html", grouped_articles=grouped_articles)
 
 

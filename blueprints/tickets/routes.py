@@ -161,7 +161,7 @@ def take_in_work(ticket_id):
 # Запросить проверку у заявителя (Исполнитель / Начальник отдела)
 @tickets_bp.route("/ticket/<int:ticket_id>/request_review", methods=["POST"])
 @login_required
-@role_required(["executor", "head"])
+@role_required(["executor", "head", "classifier"])
 def request_review(ticket_id):
     ticket = TicketService.get_ticket(ticket_id)
     if current_user not in ticket.executors:
