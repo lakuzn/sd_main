@@ -4,7 +4,7 @@ import { fetchSendMessage, setFileUploadClearFn } from "./api.js";
 import { initFileUpload } from "../modules/fileUploadChat.js";
 
 let socket = null;
-// Флаг, чтобы слушатели receive_comment не дублировались
+// Флаг, чтобы слушатель receive_comment не дублировался
 let commentListenerAttached = false;
 
 export function setupDiscussion(config) {
@@ -46,9 +46,9 @@ export function setupDiscussion(config) {
         sendHandler();
     });
 
-    // Вставка файлов из буфера обмена в textarea
+    // Вставка файлов из буфера обмена
     input.addEventListener('paste', (e) => {
-        if (!fileInput) return;
+        if (!fileInput || !fileControls) return;
         const items = e.clipboardData?.items;
         if (!items) return;
 
@@ -57,9 +57,7 @@ export function setupDiscussion(config) {
             if (item.kind === 'file') {
                 hasFiles = true;
                 const file = item.getAsFile();
-                if (file && fileControls) {
-                    fileControls.addFile(file);
-                }
+                if (file) fileControls.addFile(file);
             }
         }
         if (hasFiles) e.preventDefault();
@@ -82,23 +80,31 @@ export function initChat() {
     const history = document.getElementById('chat-history');
     scrollToBottom(history);
 
+    const newMessageDot = document.getElementById('ticketNewMessage');
+    const chatInput = document.getElementById('chat-input');
+
     socket.on('receive_message', (data) => {
         if (history) {
             appendMessage(data, history);
             scrollToBottom(history);
         }
+
+        // Точка-индикатор о новом сообщении от другого пользователя
+        if (newMessageDot && data.sender_id !== Number(window.currentUserId || 0)) {
+            newMessageDot.style.display = 'inline-block';
+        }
     });
+
+    // Скрываем индикатор, когда пользователь работает с чатом
+    if (chatInput && newMessageDot) {
+        chatInput.addEventListener('focus', () => {
+            newMessageDot.style.display = 'none';
+        });
+    }
 
     socket.on('ticket_status_changed', (data) => {
         if (data.ticket_id == ticketId) {
             data.new_status === 'Решена' ? setResolvedMode() : setActiveMode();
-        }
-    });
-
-    // Бесшовное обновление параметров заявки без перезагрузки страницы
-    socket.on('ticket_params_changed', (data) => {
-        if (data.ticket_id == ticketId) {
-            updateTicketParamsUI(data);
         }
     });
 
@@ -115,7 +121,7 @@ export function initChat() {
         isComment: false
     });
 
-    // Инициализируем слушатель комментариев один раз вместе с чатом
+    // Слушатель комментариев подключаем один раз вместе с чатом
     _initCommentListener();
 }
 
@@ -131,19 +137,16 @@ function _initCommentListener() {
             scrollToBottom(history);
         }
 
-        // Показываем кнопку «Внутр. комм.» если её ещё нет на странице
-        let btn = document.getElementById('buttonSeeComments');
-        if (!btn) {
-            const ticketBlock = document.querySelector('.ticket-block--comments');
-            if (ticketBlock) {
-                ticketBlock.style.display = '';
-                btn = ticketBlock.querySelector('#buttonSeeComments');
-            }
-        }
-        if (btn) {
-            const countEl = btn.querySelector('.comments__count');
-            if (countEl) {
-                countEl.textContent = parseInt(countEl.textContent || '0') + 1;
+        // Показываем кнопку «Внутр. комм.», если её ещё нет
+        const ticketBlock = document.querySelector('.ticket-block--comments');
+        if (ticketBlock) {
+            ticketBlock.style.display = '';
+            const btn = ticketBlock.querySelector('#buttonSeeComments');
+            if (btn) {
+                const countEl = btn.querySelector('.comments__count');
+                if (countEl) {
+                    countEl.textContent = parseInt(countEl.textContent || '0') + 1;
+                }
             }
         }
     });
@@ -153,8 +156,7 @@ export function initComments() {
     const history = document.getElementById('comment-history');
     scrollToBottom(history);
 
-    // Слушатель уже подключён в initChat — повторно не вешаем
-    // Только настраиваем форму
+    // Слушатель уже подключён в initChat — только настраиваем форму
     setupDiscussion({
         formId: 'comment-form',
         inputId: 'comment-input',
@@ -189,7 +191,6 @@ function appendMessage(data, history) {
         ? 'discussion-chat__message--right'
         : 'discussion-chat__message--left';
 
-    // Должность/роль отправителя
     const positionLabel = data.sender_position
         ? `<p class="message-content__position">${data.sender_position}</p>`
         : '';
@@ -282,28 +283,4 @@ function scrollToBottom(container) {
     setTimeout(() => {
         container.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, 50);
-}
-
-// Обновляем параметры заявки на странице без перезагрузки
-function updateTicketParamsUI(data) {
-    // Обновляем window.currentTicket для синхронизации ticketParams
-    if (window.currentTicket) {
-        if (data.new_status) window.currentTicket.status = data.new_status;
-        if (data.executor_ids) window.currentTicket.executor_ids = JSON.stringify(data.executor_ids);
-        if (data.department_ids) window.currentTicket.department_ids = JSON.stringify(data.department_ids);
-        if (data.category_ids) window.currentTicket.category_ids = JSON.stringify(data.category_ids);
-        if (data.priority) window.currentTicket.priority = data.priority;
-    }
-
-    // Статус в шапке заявки
-    if (data.new_status) {
-        const statusEl = document.querySelector('.ticket__status');
-        if (statusEl) statusEl.textContent = data.new_status;
-    }
-
-    // Скрываем кнопки "Применить/Отменить" т.к. изменения приняты
-    const applyBtn = document.getElementById('ticketChangeParams');
-    const cancelBtn = document.getElementById('ticketChangeParamsCancel');
-    if (applyBtn) applyBtn.style.display = 'none';
-    if (cancelBtn) cancelBtn.style.display = 'none';
 }

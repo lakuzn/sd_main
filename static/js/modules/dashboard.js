@@ -41,7 +41,16 @@ function isRelevantForCurrentDashboard(ticket) {
             ['В работе', 'Ожидает ответа'].includes(ticket.status);
 
     if (role === 'classifier')
-        return ['Новая', 'В обработке'].includes(ticket.status);
+        return ['Новая', 'В обработке'].includes(ticket.status) ||
+            (Array.isArray(ticket.executor_ids) && ticket.executor_ids.includes(userId) && ticket.status !== 'Решена');
+
+    if (role === 'head') {
+        const deptId = window.currentUserDepartmentId;
+        return ticket.status !== 'Решена' && (
+            (deptId && Array.isArray(ticket.department_ids) && ticket.department_ids.includes(deptId)) ||
+            (Array.isArray(ticket.executor_ids) && ticket.executor_ids.includes(userId))
+        );
+    }
 
     if (role === 'admin')
         return ticket.status !== 'Решена';

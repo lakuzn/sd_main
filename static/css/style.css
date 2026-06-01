@@ -698,10 +698,6 @@ button {
 .ticket-category__list {
     display: flex;
     flex-direction: column;
-
-    border: 1px solid var(--color-gray-300);
-    border-radius: var(--radius-8);
-    overflow: hidden;
 }
 
 .ticket-category__select {
@@ -1472,7 +1468,8 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 }
 
 .ticket-categories,
-.ticket-priority {
+.ticket-priority,
+.ticket-departments {
     display: flex;
     align-items: center;
     -moz-column-gap: var(--space-6);
@@ -1480,7 +1477,8 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 }
 
 .ticket-categories__label,
-.ticket-priority__label {
+.ticket-priority__label,
+.ticket-departments__label {
     font-weight: 500;
     color: var(--color-gray-500);
 }
@@ -1493,29 +1491,50 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 }
 
 .categories-select.button {
-    padding: var(--space-2) var(--space-12) var(--space-2) var(--space-2);
+    padding: var(--space-2) var(--space-12);
     border-radius: var(--radius-full);
     -moz-column-gap: var(--space-6);
     column-gap: var(--space-6);
+}
+
+.departments-select {
+    display: flex;
+    flex-wrap: wrap;
+    -moz-column-gap: var(--space-6);
+    column-gap: var(--space-6);
+
+    padding: var(--space-2) var(--space-12);
+    border-radius: var(--radius-full);
 }
 
 .categories-item,
-.categories-item.button {
+.categories-item.button,
+.departments-item {
     display: flex;
+    align-items: center;
     -moz-column-gap: var(--space-6);
     column-gap: var(--space-6);
-    padding: var(--space-2) var(--space-12);
-    border: 1px solid var(--color-gray-300);
-    border-radius: var(--radius-full);
     font-size: var(--font-size-14);
-    background-color: var(--color-gray-50);
 }
 
-.categories-item__label {
+.categories-item:not(:last-child)::after,
+.departments-item:not(:last-child)::after {
+    display: flex;
+    content: '';
+    min-width: var(--space-4);
+    width: var(--space-4);
+    height: var(--space-4);
+    border-radius: var(--radius-full);
+    background-color: var(--color-gray-300);
+}
+
+.categories-item__label,
+.departments-item__label {
     font-weight: 500;
 }
 
-.categories-item__desc {
+.categories-item__desc,
+.departments-item__desc {
     display: flex;
     align-items: center;
     -moz-column-gap: var(--space-6);
@@ -1525,7 +1544,8 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     color: var(--color-gray-500);
 }
 
-.categories-item__desc::before {
+.categories-item__desc::before,
+.departments-item__desc::before {
     display: flex;
 
     content: '';
@@ -1535,6 +1555,7 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
     border-radius: var(--radius-full);
     background-color: var(--color-gray-300);
 }
+
 
 .ticket__created {
     font-weight: 500;
@@ -1569,6 +1590,7 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 
 .ticket-actions__more::after,
 .categories-select.button::after,
+.departments-select::after,
 .ticket-executors--select::after {
     content: '';
     display: flex;
@@ -1718,6 +1740,25 @@ input[type="checkbox"]:checked+.ticket-category__select::before {
 .message-content__time {
     color: var(--color-gray-500);
     font-size: var(--font-size-12);
+}
+
+.content__card--review {
+    border-color: var(--color-success-400);
+}
+
+.card__new-message {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-primary-400);
+    flex-shrink: 0;
+}
+
+.message-content__position {
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    margin: 0;
 }
 
 .chat__title {
@@ -2720,21 +2761,3 @@ body.body-login {
 @media screen and (max-width: 480px) {}
 
 @media screen and (max-width: 375px) {}
-.content__card--review {
-    border-color: var(--color-success-400);
-}
-
-.card__new-message {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--color-primary-400);
-    flex-shrink: 0;
-}
-
-.message-content__position {
-    font-size: 0.75rem;
-    color: var(--color-gray-500);
-    margin: 0;
-}

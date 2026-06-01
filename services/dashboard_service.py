@@ -77,7 +77,10 @@ class DashboardService:
             Ticket.query.filter(
                 or_(
                     Ticket.status.in_(["Новая", "В обработке"]),
-                    Ticket.executors.any(id=user_id),
+                    and_(
+                        Ticket.executors.any(id=user_id),
+                        Ticket.status != "Решена",
+                    ),
                 )
             )
             .order_by(Ticket.updated_at.desc())
@@ -98,25 +101,30 @@ class DashboardService:
         if user_role == "executor":
             context["tickets"] = (
                 Ticket.query.filter(
-                    Ticket.applicant_id == user_id, Ticket.status == "Решена"
+                    Ticket.applicant_id == user_id,
+                    Ticket.status == "Решена",
+                    Ticket.is_deleted == False,
                 )
                 .order_by(Ticket.updated_at.desc())
                 .all()
             )
 
-            # 2. Заявки, которые он чинил (выполнял) как сотрудник
             context["executor_tasks_solved"] = (
                 Ticket.query.filter(
-                    Ticket.executors.any(id=user_id), Ticket.status == "Решена"
+                    Ticket.executors.any(id=user_id),
+                    Ticket.status == "Решена",
+                    Ticket.is_deleted == False,
                 )
                 .order_by(Ticket.updated_at.desc())
                 .all()
             )
 
-        else:  # Ищем только закрытые заявки
+        else:
             context["tickets"] = (
                 Ticket.query.filter(
-                    Ticket.applicant_id == user_id, Ticket.status == "Решена"
+                    Ticket.applicant_id == user_id,
+                    Ticket.status == "Решена",
+                    Ticket.is_deleted == False,
                 )
                 .order_by(Ticket.updated_at.desc())
                 .all()

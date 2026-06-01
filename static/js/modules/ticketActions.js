@@ -14,11 +14,8 @@ export function initTicketActions() {
                 onConfirm: async () => {
                     const result = await fetchCloneTicket(ticketId, button);
                     if (result && result.ticket_id) {
-                        const card = document.getElementById(`ticket-card-${ticketId}`);
-                        if (card) {
-                            card.style.opacity = '0';
-                            setTimeout(() => card.remove(), 300);
-                        }
+                        // Переходим на дашборд, где появится новая заявка
+                        window.location.href = '/';
                     }
                 }
             });
@@ -56,7 +53,8 @@ export function initTicketActions() {
                 onConfirm: async () => {
                     const result = await fetchCloneTicket(ticketId, buttonUnResolved);
                     if (result && result.ticket_id) {
-                        window.location.href = `/ticket/${result.ticket_id}`;
+                        // Переходим на дашборд
+                        window.location.href = '/';
                     }
                 }
             });
@@ -65,12 +63,12 @@ export function initTicketActions() {
 
     const buttonDeleteTicket = document.getElementById('buttonDeleteTicket');
     if (buttonDeleteTicket) {
+        const modal = document.getElementById('modalDeleteTicket');
+
         buttonDeleteTicket.addEventListener('click', () => {
-            const modal = document.getElementById('modalDeleteTicket');
             if (modal) modal.style.display = 'flex';
         });
 
-        const modal = document.getElementById('modalDeleteTicket');
         if (modal) {
             const overlay = modal.querySelector('.modal__overlay');
             const cancelBtn = modal.querySelector('.modal__cancel');
@@ -86,10 +84,11 @@ export function initTicketActions() {
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', async () => {
                     const ticketId = window.currentTicket?.id;
-                    closeModal();
                     const result = await fetchDeleteTicket(ticketId, confirmBtn);
                     if (result && result.status === 'success') {
                         window.location.href = '/';
+                    } else {
+                        closeModal();
                     }
                 });
             }

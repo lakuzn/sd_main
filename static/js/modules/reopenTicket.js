@@ -17,7 +17,8 @@ export function initReopenTicket() {
                 onConfirm: async () => {
                     const result = await fetchCloneTicket(ticketId, button);
                     if (result && result.ticket_id) {
-                        window.location.href = `/ticket/${result.ticket_id}`;
+                        // Переходим на дашборд, где появится новая заявка
+                        window.location.href = '/';
                     }
                 }
             });

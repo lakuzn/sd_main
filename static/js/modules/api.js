@@ -57,7 +57,8 @@ export async function fetchTicketParamsOptions() {
             categories: data.categories || [],
             priorities: data.priorities || [],
             statuses: data.statuses || [],
-            executors: data.executors || []
+            executors: data.executors || [],
+            departments: data.departments || []
         };
     } catch (error) {
         console.error('Ошибка загрузки опций параметров:', error);

@@ -1,5 +1,6 @@
 import { fetchTicketParamsOptions, fetchChangeTicketParams } from "./api.js"
 import { SearchExecutors } from "./ticketActions.js";
+import { createCategoryCheckboxes } from "./categoryCheckboxes.js";
 
 function dropdownChangeTicketPriority(buttonId, listId, options, initialValue, onChange) {
     const list = document.getElementById(listId)
@@ -171,7 +172,7 @@ function dropdownTicketInfo(buttonId, wrapperId) {
     button.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === '') {
             e.preventDefault();
-            toggleDropdown();
+            toggleDropdown(e);
         }
 
         if (e.key === 'Escape') closeDropdown();
@@ -209,6 +210,10 @@ function markAsChanged(field, newValue) {
     if (!isChanged) delete changedParams[field];
     else changedParams[field] = newValue;
 
+    updateActionButtons();
+}
+
+function updateActionButtons() {
     const hasChanges = Object.keys(changedParams).length > 0;
     if (applyButton) applyButton.style.display = hasChanges ? 'flex' : 'none';
     if (cancelButton) cancelButton.style.display = hasChanges ? 'flex' : 'none';
@@ -223,7 +228,6 @@ function getExecutorData(executorId) {
 
     const fullName = dropdownItem.querySelector('.ticket-person__label')?.textContent || '';
 
-    // Инициалы
     const nameParts = fullName.trim().split(' ');
     const initials = (nameParts[0][0] || '') + (nameParts[1][0] || '');
 
@@ -237,7 +241,6 @@ function getExecutorData(executorId) {
 function renderExecutorItem(executor) {
     return `
         <div id="${executor.id}" class="ticket-person">
-            <!-- <img src="" alt=""> -->
             <span class="ticket-person__img ticket-person__img--executor">
                 ${executor.initials}
             </span>
@@ -304,13 +307,10 @@ function initExecutors() {
             updateTicketExecutors();
             markAsChanged('executor_ids', [...selectedExecutors]);
 
-            // Взаимное исключение: если выбраны исполнители — сбрасываем отделы
-            if (selectedExecutors.length > 0) {
+            // Взаимное исключение: исполнители ИЛИ отдел
+            if (selectedExecutors.length > 0 && selectedDepartments.length > 0) {
                 selectedDepartments = [];
-                updateDeptDropdownSelection();
-                updateTicketDepartments();
-                delete changedParams['department_ids'];
-                changedParams['department_ids'] = [];
+                markAsChanged('department_ids', []);
             }
         });
     });
@@ -320,6 +320,7 @@ function initExecutors() {
 
 async function initPriority() {
     const options = await fetchTicketParamsOptions();
+    if (!options) return;
 
     priorityDropdown = dropdownChangeTicketPriority(
         'changeTicketPriorityBtn',
@@ -330,64 +331,42 @@ async function initPriority() {
     );
 }
 
-function initCategories() {
-    selectedCategories = parseToJson(window.currentTicket?.category_ids || []);
+async function initCategories() {
+    const options = await fetchTicketParamsOptions();
 
-    const categoryItems = document.querySelectorAll('#dropdownTicketCategoryList .js-category-item');
-    categoryItems.forEach(item => {
-        const catId = parseInt(item.dataset.id);
-        if (selectedCategories.includes(catId)) {
-            item.classList.add('selected');
-        }
-
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-
-            if (isNaN(catId)) return;
-
-            const index = selectedCategories.indexOf(catId);
-            if (index !== -1) {
-                selectedCategories.splice(index, 1);
-                item.classList.remove('selected');
-            } else {
-                selectedCategories.push(catId);
-                item.classList.add('selected');
-            }
-
-            updateTicketCategories();
-
+    selectedCategories = createCategoryCheckboxes(
+        'dropdownTicketCategoryList',
+        options.categories,
+        parseToJson(window.currentTicket?.category_ids || []),
+        (newIds) => {
             const originalIds = parseToJson(window.currentTicket?.category_ids || []);
-            const isChanged = JSON.stringify([...originalIds].sort((a, b) => a - b))
-                !== JSON.stringify([...selectedCategories].sort((a, b) => a - b));
+            const isChanged = JSON.stringify(originalIds.sort()) !== JSON.stringify([...newIds].sort());
 
             if (isChanged)
-                changedParams['categories'] = [...selectedCategories];
+                changedParams['categories'] = [...newIds];
             else
                 delete changedParams['categories'];
 
-            const hasChanges = Object.keys(changedParams).length > 0;
-            if (applyButton) applyButton.style.display = hasChanges ? 'flex' : 'none';
-            if (cancelButton) cancelButton.style.display = hasChanges ? 'flex' : 'none';
-        });
-    });
+            updateActionButtons()
+
+        },
+        ticketCategoriesContainer,
+    )
 
     const searchInput = document.getElementById('categorySearch');
     if (searchInput) {
         searchInput.addEventListener('input', function (e) {
             const term = e.target.value.toLowerCase().trim();
+            const categoryItems = document.querySelectorAll('#dropdownTicketCategoryList .dropdown-item');
             categoryItems.forEach(item => {
-                const label = item.querySelector('.ticket-person__label');
-                const text = label ? label.textContent.toLowerCase() : '';
-                const dropdownItem = item.closest('.dropdown-item');
-                if (dropdownItem)
-                    dropdownItem.style.display = text.includes(term) ? '' : 'none';
+                const label = item.querySelector('.ticket-category__select');
+                if (!label) return;
+
+                const text = label ? label.textContent.toLowerCase().trim() : '';
+                term === '' ? item.style.display = '' : (item.style.display = text.includes(term) ? '' : 'none');
             });
         });
     }
-}
-
-function updateTicketCategories() {
-    if (!ticketCategoriesContainer) return;
 }
 
 function initDocumentNumber() {
@@ -408,91 +387,47 @@ function initDeadline() {
     }
 }
 
-function getDeptData(deptId) {
-    const deptEl = document.querySelector(`.js-department-item[data-id="${deptId}"]`);
-    if (!deptEl) return null;
-    const name = deptEl.querySelector('.ticket-person__label')?.textContent?.trim() || '';
-    return { id: deptId, name: name };
-}
+async function initDepartments() {
+    const options = await fetchTicketParamsOptions();
 
-function renderDeptItem(dept) {
-    return `<div class="ticket-person"><p class="ticket-person__label">${dept.name}</p></div>`;
-}
+    selectedDepartments = createCategoryCheckboxes(
+        'dropdownTicketDeptList',
+        options.departments,
+        parseToJson(window.currentTicket?.department_ids || []),
+        (newIds) => {
+            const originalIds = parseToJson(window.currentTicket?.department_ids || []);
+            const isChanged = JSON.stringify(originalIds.sort()) !== JSON.stringify([...newIds].sort());
 
-function updateTicketDepartments() {
-    if (!ticketDeptsContainer) return;
+            if (isChanged)
+                changedParams['department_ids'] = [...newIds];
+            else
+                delete changedParams['department_ids'];
 
-    if (!selectedDepartments.length) {
-        ticketDeptsContainer.innerHTML =
-            '<div class="ticket-person"><p class="ticket-person__label">Отдел не назначен</p></div>';
-        return;
-    }
+            updateActionButtons()
 
-    ticketDeptsContainer.innerHTML = '';
-    selectedDepartments.forEach(id => {
-        const dept = getDeptData(id);
-        if (dept)
-            ticketDeptsContainer.insertAdjacentHTML('beforeend', renderDeptItem(dept));
-    });
-}
+        },
+        ticketDeptsContainer,
+    )
 
-function updateDeptDropdownSelection() {
-    const depts = document.querySelectorAll('#dropdownTicketDeptList .dropdown-item');
-    depts.forEach(item => {
-        const deptEl = item.querySelector('.js-department-item');
-        if (!deptEl) return;
-        const deptId = parseInt(deptEl.dataset.id);
-        selectedDepartments.includes(deptId)
-            ? deptEl.classList.add('selected')
-            : deptEl.classList.remove('selected');
-    });
-}
-
-function initDepartments() {
-    selectedDepartments = parseToJson(window.currentTicket?.department_ids || []);
-    updateDeptDropdownSelection();
-    updateTicketDepartments();
-
-    const deptItemsList = document.querySelectorAll('#dropdownTicketDeptList .js-department-item');
-    deptItemsList.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-
-            const deptId = parseInt(item.dataset.id);
-            if (isNaN(deptId)) return;
-
-            const index = selectedDepartments.indexOf(deptId);
-            if (index !== -1) {
-                selectedDepartments.splice(index, 1);
-                item.classList.remove('selected');
-            } else {
-                selectedDepartments.push(deptId);
-                item.classList.add('selected');
-            }
-
-            updateTicketDepartments();
-            markAsChanged('department_ids', [...selectedDepartments]);
-
-            // Взаимное исключение: если выбраны отделы — сбрасываем исполнителей
-            if (selectedDepartments.length > 0) {
-                selectedExecutors = [];
-                updateDropdownSelection();
-                updateTicketExecutors();
-                changedParams['executor_ids'] = [];
-            }
-        });
-    });
+    // Взаимное исключение: отдел ИЛИ исполнители
+    // if (selectedDepartments.length > 0 && selectedExecutors.length > 0) {
+    //     selectedExecutors = [];
+    //     updateDropdownSelection();
+    //     updateTicketExecutors();
+    //     markAsChanged('executor_ids', []);
+    // }
 
     const searchInput = document.getElementById('deptSearch');
     if (searchInput) {
         searchInput.addEventListener('input', function (e) {
             const term = e.target.value.toLowerCase().trim();
-            deptItemsList.forEach(item => {
-                const label = item.querySelector('.ticket-person__label');
-                const text = label ? label.textContent.toLowerCase() : '';
-                const dropdownItem = item.closest('.dropdown-item');
-                if (dropdownItem)
-                    dropdownItem.style.display = text.includes(term) ? '' : 'none';
+            const categoryItems = document.querySelectorAll('#dropdownTicketDeptList .dropdown-item');
+            categoryItems.forEach(item => {
+                const label = item.querySelector('.ticket-category__select');
+                if (!label) return;
+
+                const text = label ? label.textContent.toLowerCase().trim() : '';
+                term === '' ? item.style.display = '' : (item.style.display = text.includes(term) ? '' : 'none');
             });
         });
     }
@@ -503,31 +438,16 @@ async function applyChanges() {
 
     const success = await fetchChangeTicketParams(changedParams, applyButton);
     if (success) {
-        for (const [field, newValue] of Object.entries(changedParams))
-            originalParams[field] = newValue;
-
-        // Обновляем window.currentTicket без перезагрузки страницы
-        if (window.currentTicket) {
-            if (changedParams.priority !== undefined)
-                window.currentTicket.priority = changedParams.priority;
-            if (changedParams.executor_ids !== undefined)
-                window.currentTicket.executor_ids = JSON.stringify(changedParams.executor_ids);
-            if (changedParams.department_ids !== undefined)
-                window.currentTicket.department_ids = JSON.stringify(changedParams.department_ids);
-            if (changedParams.categories !== undefined)
-                window.currentTicket.category_ids = JSON.stringify(changedParams.categories);
-        }
-
-        resetAllFields();
-        // Кнопки уже скрыты в resetAllFields — перезагрузка не нужна
-        // Статус и прочие изменения придут через socket ticket_params_changed
+        // Простой и надёжный путь: перезагружаем страницу,
+        // чтобы все поля и статус обновились корректно
+        // window.location.reload();
     }
 }
 
 function resetAllFields() {
     if (priorityDropdown && priorityDropdown.reset) priorityDropdown.reset();
 
-    selectedExecutors = originalParams.executor_ids ? [...originalParams.executor_ids] : [];
+    selectedExecutors = parseToJson(window.currentTicket?.executor_ids || []);
     updateTicketExecutors();
     updateDropdownSelection();
 
@@ -540,9 +460,7 @@ function resetAllFields() {
             : item.classList.remove('selected');
     });
 
-    selectedDepartments = originalParams.department_ids ? [...originalParams.department_ids] : [];
-    updateDeptDropdownSelection();
-    updateTicketDepartments();
+    selectedDepartments = parseToJson(window.currentTicket?.department_ids || []);
 
     if (docNumberInput) docNumberInput.value = originalParams.document_number || '';
     if (deadlineInput) deadlineInput.value = originalParams.desired_deadline || '';
@@ -550,14 +468,6 @@ function resetAllFields() {
     changedParams = {};
     if (applyButton) applyButton.style.display = 'none'
     if (cancelButton) cancelButton.style.display = 'none'
-}
-
-function disableEditFields() {
-    if (applyButton) applyButton.style.display = 'none';
-    if (cancelButton) cancelButton.style.display = 'none';
-
-    if (docNumberInput) docNumberInput.disabled = true;
-    if (deadlineInput) deadlineInput.disabled = true;
 }
 
 let priorityDropdown = null;

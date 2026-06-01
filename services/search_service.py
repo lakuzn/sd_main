@@ -24,13 +24,21 @@ class SearchService:
 
         # 1. ФИЛЬТРАЦИЯ ПО ПРАВАМ ДОСТУПА (Безопасность)
         if user.role == "user":
-            # Пользователь ищет только по своим заявкам
             base_query = base_query.filter(Ticket.applicant_id == user.id)
-        elif user.role == "executor":
-            # Исполнитель ищет по своим (как заявитель) и по назначенным на него
-            base_query = base_query.filter(
-                or_(Ticket.applicant_id == user.id, Ticket.executors.any(id=user.id))
+        elif user.role in ("executor", "head"):
+            # Свои заявки (как заявитель) + назначенные (не решённые) + заявки отдела (не решённые)
+            dept_filter = (
+                and_(Ticket.departments.any(id=user.department_id), Ticket.status != "Решена")
+                if user.department_id else None
             )
+            assigned_filter = and_(
+                Ticket.executors.any(id=user.id), Ticket.status != "Решена"
+            )
+            own_filter = Ticket.applicant_id == user.id
+            access_filters = [own_filter, assigned_filter]
+            if dept_filter is not None:
+                access_filters.append(dept_filter)
+            base_query = base_query.filter(or_(*access_filters))
         # Классификаторы и Админы видят всю базу (фильтр не накладываем)
 
         # 2. ФИЛЬТРАЦИЯ ПО ТЕКСТУ ЗАПРОСА
@@ -53,7 +61,7 @@ class SearchService:
         return results, total
 
     @staticmethod
-    def search_articles_grouped_by_category(query_text):
+    def search_articles_grouped_by_category(query_text, staff_only=True):
         """Поиск по базе знаний + группировка по категориям"""
         if not query_text:
             return {}, 0
@@ -61,9 +69,13 @@ class SearchService:
         words = query_text.split()
         conditions = [KnowledgeArticle.title.ilike(f"%{word}%") for word in words]
 
-        total = KnowledgeArticle.query.filter(or_(*conditions)).count()
+        base = KnowledgeArticle.query
+        if not staff_only:
+            base = base.filter_by(is_staff_only=False)
 
-        articles = KnowledgeArticle.query.filter(or_(*conditions)).all()
+        total = base.filter(or_(*conditions)).count()
+
+        articles = base.filter(or_(*conditions)).all()
         grouped = {}
         for article in articles:
             category_name = article.category.name if article.category else "Прочее"

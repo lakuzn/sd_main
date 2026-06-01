@@ -36,7 +36,13 @@ class TicketService:
             return True
 
         if ticket.status in ["Новая", "В обработке"]:
-            return user.role == "classifier"
+            if user.role == "classifier" or user.role == "executor":
+                return True
+            if user.role == "head" and user.department_id:
+                for dept in ticket.departments:
+                    if dept.id == user.department_id:
+                        return True
+            return False
 
         if user.role == "classifier":
             return ticket.classifier_id == user.id or user in ticket.executors
