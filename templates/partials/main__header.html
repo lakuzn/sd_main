@@ -1,0 +1,64 @@
+<div class="main__header">
+    <form action="{{ url_for('search.results')}}" method="get" class="form__search">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <input type="text" name="q" class="search__input" placeholder="Поиск по всему сервису..."
+            value="{{ request.args.get('q', '')}}">
+        <button type="submit" class="search__button button" title="Найти">
+            <span class="sr-only">Найти</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </button>
+    </form>
+
+    <div class="main-notifications">
+        <button class="notifications-button button">
+            🔔
+            <span class="notifications__button-badge" style="display: {{ 'flex' if unread_count > 0 else 'none' }};">
+                {{ unread_count }}
+            </span>
+        </button>
+
+        <div class="dropdown notifications-dropdown" style="display: none;">
+            <div class="dropdown-header">
+                <p class="dropdown-header__title">Уведомления</p>
+                <button type="button" class="dropdown-header__button button">
+                    Прочитать все
+                </button>
+            </div>
+
+            <ul role="list" class="dropdown-list">
+                {% if notifications %}
+                {% for notif in notifications %}
+                <li class="dropdown-item">
+                    <a href="{{ url_for('tickets.view_ticket', ticket_id=notif.ticket_id) if notif.ticket_id else '#' }}"
+                        data-notif-id="{{ notif.id }}"
+                        class="button dropdown-item__content {% if not notif.is_read %}dropdown-item__content--unchecked{%endif%}">
+
+                        <p class="dropdown-item__title">
+                            {% if notif.ticket_id %}По заявке №{{notif.ticket_id}}
+                            {% else %} Системное уведомление
+                            {% endif %}
+                        </p>
+                        <p class="dropdown-item__description">{{notif.message}}</p>
+                        <time datetime="{{notif.created_at.isoformat()}}" class="dropdown-item__time">
+                            {{ notif.created_at.strftime('%d.%m.%Y %H:%M') }}
+                        </time>
+                    </a>
+                </li>
+                {% endfor %}
+                {% else %}
+                <li class="dropdown-item">
+                    <p>Нет новых уведомлений</p>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+
+</div>
