@@ -1,6 +1,0 @@
-{% if current_user.role == 'admin' %}Администратор
-{% elif current_user.role == 'executor' %}Исполнитель
-{% elif current_user.role == 'classifier' %}Специалист 1-ой линии поддержки
-{% elif current_user.role == 'head' %}Начальник отдела
-{% else %}Пользователь
-{% endif %}
