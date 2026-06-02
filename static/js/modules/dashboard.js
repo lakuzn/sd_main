@@ -65,8 +65,10 @@ async function addTicketCard(ticket) {
 
         const container = document.querySelector('.content__cards');
 
-        if (container)
+        if (container) {
             container.insertAdjacentHTML('afterbegin', data.html);
+            reorderCards();
+        }
     } catch (e) {
         return e;
     }
@@ -81,10 +83,32 @@ function updateOrRemoveTicketCard(ticket, oldStatus) {
         } else {
             const statusEl = card.querySelector('.ticket__status');
             if (statusEl) statusEl.textContent = ticket.status;
+
+            // Зелёная обводка для заявок, требующих проверки
+            const cardLink = card.querySelector('.content__card');
+            if (cardLink) {
+                cardLink.classList.toggle(
+                    'content__card--review',
+                    ticket.status === 'Требует проверки'
+                );
+            }
+            reorderCards();
         }
     } else if (shouldBeVisible) {
         addTicketCard(ticket);
     }
+}
+
+// Просроченные карточки всегда первыми в списке
+function reorderCards() {
+    const container = document.querySelector('.content__cards');
+    if (!container) return;
+
+    const items = Array.from(container.querySelectorAll('.content__card-item'));
+    items
+        .filter(item => item.querySelector('.content__card--overdue'))
+        .reverse()
+        .forEach(item => container.insertBefore(item, container.firstChild));
 }
 
 function markCardHasNewMessage(ticketId) {

@@ -1,4 +1,4 @@
-import { fetchFilterOptions } from "./api.js";
+import { fetchFilterOptions } from "../api/api.js";
 import { initDropdownFilters } from "./dropdownFilters.js";
 
 export async function initEditTicket() {

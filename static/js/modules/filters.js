@@ -1,5 +1,5 @@
 import { initDropdownFilters } from "./dropdownFilters.js";
-import { fetchFilterOptions } from "./api.js";
+import { fetchFilterOptions } from "../api/api.js";
 
 let currentFilters = {
     category: null,

@@ -1,7 +1,23 @@
 from app.models import Ticket, User
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, case
 from app.extensions import db
 from datetime import datetime
+
+
+def _overdue_first():
+    """Выражение для сортировки: просроченные активные заявки идут первыми."""
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+    return case(
+        (
+            and_(
+                Ticket.status != "Решена",
+                Ticket.desired_deadline.isnot(None),
+                Ticket.desired_deadline < today_start,
+            ),
+            0,
+        ),
+        else_=1,
+    )
 
 
 class DashboardService:
@@ -16,13 +32,18 @@ class DashboardService:
                 (Ticket.applicant_id == user_id),
                 Ticket.status != "Решена",
             )
-            .order_by(Ticket.updated_at.desc())
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
+
+        from app.services.ticket_service import TicketService
 
         return {
             "tickets": pagination.items,
             "pagination": pagination,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                pagination.items, user_id
+            ),
         }
 
     @staticmethod
@@ -42,12 +63,17 @@ class DashboardService:
                     Ticket.departments.any(id=user.department_id),
                 ),
             )
-            .order_by(Ticket.updated_at.desc())
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .all()
         )
 
+        from app.services.ticket_service import TicketService
+
         return {
             "tickets": tickets,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                tickets, user_id
+            ),
         }
 
     @staticmethod
@@ -63,11 +89,18 @@ class DashboardService:
                     Ticket.executors.any(id=user_id),
                 ),
             )
-            .order_by(Ticket.updated_at.desc())
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .all()
         )
 
-        return {"tickets": tickets}
+        from app.services.ticket_service import TicketService
+
+        return {
+            "tickets": tickets,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                tickets, user_id
+            ),
+        }
 
     @staticmethod
     def get_classifier_data(user_id, page=1, per_page=18):
@@ -83,11 +116,19 @@ class DashboardService:
                     ),
                 )
             )
-            .order_by(Ticket.updated_at.desc())
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
 
-        return {"tickets": pagination.items, "pagination": pagination}
+        from app.services.ticket_service import TicketService
+
+        return {
+            "tickets": pagination.items,
+            "pagination": pagination,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                pagination.items, user_id
+            ),
+        }
 
     @staticmethod
     def get_archive_data(user_id, user_role):

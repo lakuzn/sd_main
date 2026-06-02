@@ -1,4 +1,4 @@
-import { fetchReadNotifications } from "./api.js";
+import { fetchReadNotifications } from "../api/api.js";
 
 export function initDropdownNotification() {
     const button = document.querySelector('.notifications-button');

@@ -1,5 +1,5 @@
-import { fetchChangeTicketStatus, fetchCloneTicket, fetchDeleteTicket } from "./api.js";
-import { initComments } from "../modules/chat.js";
+import { fetchChangeTicketStatus, fetchCloneTicket, fetchDeleteTicket } from "../api/api.js";
+import { initComments } from "../chat/chat.js";
 
 export function initTicketActions() {
     const reopenCardButtons = document.querySelectorAll('.js-reopen-card-btn');

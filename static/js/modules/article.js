@@ -1,4 +1,4 @@
-import { fetchCategories } from "./api.js"
+import { fetchCategories } from "../api/api.js";
 
 function dropdownArticleCategory(buttonId, listId, categoriesData, onChange) {
     const list = document.getElementById(listId)

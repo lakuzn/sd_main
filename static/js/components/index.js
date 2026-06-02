@@ -1,6 +1,6 @@
 import { initFiltersFaq } from "../modules/filtersFaq.js";
 import { initTicketActions } from "../modules/ticketActions.js";
-import { initChat } from "../modules/chat.js";
+import { initChat } from "../chat/chat.js";
 import { initFileUpload } from "../modules/fileUpload.js";
 import { initDropdownNotification } from "../modules/dropdownNotification.js";
 import { initReopenTicket } from "../modules/reopenTicket.js";

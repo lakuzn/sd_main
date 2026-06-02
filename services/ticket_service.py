@@ -9,6 +9,7 @@ from app.models import (
     Department,
     Category,
     User,
+    TicketView,
 )
 from app.services.log_service import LogService
 from app.extensions import socketio, db
@@ -22,6 +23,49 @@ class TicketService:
     def get_ticket(ticket_id):
         ticket = Ticket.query.get_or_404(ticket_id)
         return ticket
+
+    @staticmethod
+    def mark_ticket_viewed(ticket_id, user_id):
+        """Запоминаем, что пользователь открыл заявку — индикатор новых сообщений гаснет."""
+        view = TicketView.query.filter_by(
+            ticket_id=ticket_id, user_id=user_id
+        ).first()
+
+        if view:
+            view.last_viewed_at = datetime.now()
+        else:
+            view = TicketView(
+                ticket_id=ticket_id,
+                user_id=user_id,
+                last_viewed_at=datetime.now(),
+            )
+            db.session.add(view)
+
+        db.session.commit()
+
+    @staticmethod
+    def get_unread_ticket_ids(tickets, user_id):
+        """Возвращает множество id заявок, в которых есть новые (непрочитанные) сообщения."""
+        tickets_with_msg = [t for t in tickets if t.last_message_at]
+        if not tickets_with_msg:
+            return set()
+
+        ticket_ids = [t.id for t in tickets_with_msg]
+        views = {
+            v.ticket_id: v.last_viewed_at
+            for v in TicketView.query.filter(
+                TicketView.user_id == user_id,
+                TicketView.ticket_id.in_(ticket_ids),
+            ).all()
+        }
+
+        unread = set()
+        for t in tickets_with_msg:
+            last_viewed = views.get(t.id)
+            if last_viewed is None or last_viewed < t.last_message_at:
+                unread.add(t.id)
+
+        return unread
 
     @staticmethod
     def can_access_ticket(ticket, user):
@@ -184,11 +228,15 @@ class TicketService:
             )
 
         ticket.updated_at = datetime.now()
+        ticket.last_message_at = datetime.now()
 
         old_status = ticket.status
         TicketService._update_ticket_status_after_message(ticket, user.role, user)
 
         db.session.commit()
+
+        # Для самого отправителя сообщение сразу считается прочитанным
+        TicketService.mark_ticket_viewed(ticket.id, user.id)
 
         from app.services.notification_service import NotificationService
         if ticket.status == "Ожидает ответа" and old_status != "Ожидает ответа":
@@ -232,6 +280,11 @@ class TicketService:
         new_status = None
 
         has_executors = len(ticket.executors) > 0
+
+        # Если пишет сам заявитель (даже если по роли он исполнитель/классификатор,
+        # но это его собственная заявка) — ведём себя как с обычным пользователем
+        if user.id == ticket.applicant_id and user not in ticket.executors:
+            user_role = "user"
 
         if user_role in ["executor", "admin", "classifier"]:
             if has_executors and ticket.status == "В работе":
@@ -310,6 +363,7 @@ class TicketService:
                 content_type=file.mimetype or "application/octet-stream",
                 ticket_id=ticket_id,
                 message_id=message_id,
+                comment_id=comment_id,
                 uploaded_by_id=current_user.id,
             )
 
@@ -496,7 +550,7 @@ class TicketService:
         attachments_data = []
         if attachments and attachments[0].filename:
             attachments_data = TicketService._save_attachments(
-                ticket.id, attachments, message_id=None
+                ticket.id, attachments, message_id=None, comment_id=new_comment.id
             )
 
         ticket.updated_at = datetime.now()
@@ -713,6 +767,10 @@ class TicketService:
         """Метод для самостоятельного взятия заявки из пула отдела"""
         if ticket.status == "В обработке" and user.department in ticket.departments and not ticket.executors:
             ticket.executors.append(user)
+
+            # Заявка закрепляется за отделом того, кто взял её в работу
+            if user.department:
+                ticket.departments = [user.department]
 
             TicketService.change_status(ticket, "В работе", user)
 

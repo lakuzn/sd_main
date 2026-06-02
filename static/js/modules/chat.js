@@ -1,6 +1,6 @@
-import { linkify } from "./utils.js";
+import { linkify } from "../common/utils.js";
 import { setResolvedMode, setActiveMode } from "./ticketActions.js";
-import { fetchSendMessage, setFileUploadClearFn } from "./api.js";
+import { fetchSendMessage, setFileUploadClearFn } from "../api/api.js";
 import { initFileUpload } from "../modules/fileUploadChat.js";
 
 let socket = null;
@@ -26,6 +26,11 @@ export function setupDiscussion(config) {
 
     if (!input || !form) return;
     if (container) container.scrollTop = container.scrollHeight;
+
+    // Защита от повторной привязки обработчиков (иначе сообщения дублируются
+    // при повторном открытии окна комментариев)
+    if (form.dataset.discussionBound === '1') return;
+    form.dataset.discussionBound = '1';
 
     const fileControls = initFileUpload(fileInputId, fileListId, dropZoneId);
 

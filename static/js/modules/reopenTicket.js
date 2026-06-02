@@ -1,5 +1,5 @@
 import { showConfirmModal } from './ticketActions.js';
-import { fetchCloneTicket } from "./api.js"
+import { fetchCloneTicket } from "../api/api.js";
 
 export function initReopenTicket() {
     const buttonsUnResolved = document.querySelectorAll('.js-reopen-card-btn');
