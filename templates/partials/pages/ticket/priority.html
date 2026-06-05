@@ -1,9 +1,0 @@
-{% if ticket.priority == "Высокий" %}
-<span class="ticket__priority ticket__priority--high">{{ ticket.priority }}</span>
-{% elif ticket.priority == "Средний" %}
-<span class="ticket__priority ticket__priority--medium">{{ ticket.priority }}</span>
-{% elif ticket.priority == "Низкий" %}
-<span class="ticket__priority ticket__priority--low">{{ ticket.priority }}</span>
-{% else %}
-<span class="ticket__priority ticket__priority--unselected">Без приоритета</span>
-{% endif %}
