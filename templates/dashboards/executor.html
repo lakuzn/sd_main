@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Мои задачи на исполнение{% endblock %}
+
+{% block content %}
+<section id="dashboard" class="section" aria-labelledby="executor">
+    <div class="section__content">
+        <div class="content__info">
+            <h1 id="classiexecutorfier" class="h1">Мои задачи на исполнение</h1>
+            <p class="content__description">Количество заявок: {{ tickets|length }}</p>
+        </div>
+
+        {% if tickets %}
+        <div class="content__wrap">
+            <ul class="content__cards">
+                {% for ticket in tickets %}
+                {% include "partials/pages/ticket/card.html" %}
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% else %}
+        <div class="noresults">
+            <p class="noresults__title">
+                Нет назначенных задач
+            </p>
+        </div>
+
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+{% endblock %}

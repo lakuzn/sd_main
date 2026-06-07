@@ -1,0 +1,94 @@
+{# partials/pages/ticket/chat_block.html #}
+<h2 class="chat__title">Обсуждение заявки</h2>
+
+<div class="chat-discussion">
+    <div class="discussion-message">
+        <div class="message-details">
+            <p class="message-details__label">Описание заявки</p>
+            <p class="message-details__description">{{ticket.description}}</p>
+        </div>
+
+        {% if ticket.attachments %}
+        <div class="message-attachments">
+            {% for file in ticket.attachments %}
+            {% if not file.message_id %}
+            <a href="{{url_for('static', filename=file.file_path)}}" target="_blank"
+                class="message-attachments__item button button--outline">
+                {{file.file_name}}
+            </a>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="chat-history" class="discussion-chat">
+        {% for message in messages %}
+        {% set is_my_message = message.sender_id == current_user.id %}
+        {% set msg_class = "discussion-chat__message--right" if is_my_message else
+        "discussion-chat__message--left" %}
+
+        {% set name_parts = message.sender.full_name.split () %}
+        {% set initials = name_parts [0][0] | upper %}
+        {% if name_parts | length > 1 %}
+        {% set initials = initials ~ name_parts[1][0] | upper %}
+        {% endif %}
+
+        <div class="discussion-chat__message {{msg_class}}">
+            <span class="user__avatar">
+                {{ initials }}
+            </span>
+
+            <div class="discussion-chat__message-content">
+                <div class="message-content__body">
+                    <div class="message-content__title">
+                        <p class="message-content__user">
+                            {{message.sender.full_name}}
+                        </p>
+                        {% if message.sender.position %}
+                        <p class="message-content__position">{{message.sender.position}}</p>
+                        {% endif %}
+                        <time class="message-content__time" datetime="{{message.created_at.isoformat()}}">
+                            {{message.created_at.strftime('%d.%m, %H:%M')}}
+                        </time>
+                    </div>
+
+                    <p class="message-content__description">
+                        {{message.content | urlize(target="_blank")}}
+                    </p>
+                </div>
+                {% if message.attachments %}
+                <div class="message-attachments">
+                    {% for file in message.attachments %}
+                    <a href="{{ url_for('static', filename=file.file_path) }}" target="_blank"
+                        class="message-attachments__item button button--outline">
+                        {{ file.file_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<form id="chat-form" class="chat-form" enctype="multipart/form-data" {% if ticket.status=='Решена' or
+    (current_user.role=='executor' and current_user not in ticket.executors) or (current_user.role=='classifier' and
+    current_user not in ticket.executors and ticket.status not in ['Новая', 'В обработке' ]) %} style="display: none;"
+    {% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <ul id="chat-files" class="form-files" style="display: none;"></ul>
+
+    <input type="file" multiple name="attachments" id="chat-attachments" accept="*/*" class="form-files__input">
+
+    <textarea name="content" id="chat-input" rows="3" placeholder="Сообщение" class="form__input"></textarea>
+
+    <div class="form-actions">
+        <label for="chat-attachments" class="form-actions__attachments button button--outline"
+            title="Добавить вложения">+</label>
+
+        <button type="submit" class="form-actions__send button button--solid--primary button--md">Отправить</button>
+    </div>
+</form>

@@ -1,0 +1,49 @@
+{# partials/pages/ticket/categories_block.html #}
+<div class="ticket-categories">
+    <p class="ticket-categories__label">Категории:</p>
+
+    {% if current_user.role in ['head', 'admin'] or (current_user.role == 'classifier' and
+    ticket.status in ['Новая', 'В обработке']) %}
+    <div class="dropdown-relative">
+        <div id="dropdownTicketCategory" class="categories-select button button--outline">
+            {% if ticket.categories %}
+            {% for category in ticket.categories %}
+            <div id="{{category.id}}" class="categories-item">
+                <p class="categories-item__label">{{category.name}}</p>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="categories-item">
+                <p class="categories-item__label">Не указаны</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="dropdownTicketCategoryList" class="dropdown dropdown-ticket__person" style="display: none;">
+            <div class="dropdown-header">
+                <div class="dropdown-description">
+                    <p class="dropdown-header__title">Категории</p>
+                    <p class="dropdown-header__subtitle">Можно выбрать несколько</p>
+                </div>
+                <input type="text" id="categorySearch" class="search__input" placeholder="Начните вводить..." value="">
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+
+    <div class="categories-select">
+        {% if ticket.categories %}
+        {% for category in ticket.categories %}
+        <div class="categories-item">
+            <p class="categories-item__label">{{category.name}}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="categories-item">
+            <p class="categories-item__label">Не указаны</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
