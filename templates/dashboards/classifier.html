@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Рабочий стол Классификатора{% endblock %}
+
+{% block content %}
+<section id="dashboard" class="section" aria-labelledby="classifier">
+    <div class="section__content">
+        <div class="content__info">
+            <h1 id="classifier" class="h1 content__title">Очередь заявок</h1>
+            <p class="content__description">Активных заявок: {{ tickets|length }}</p>
+        </div>
+
+        {% include "partials/pages/dashboard/filters.html" %}
+
+        {% if tickets %}
+        <div class="content__wrap">
+            <ul class="content__cards">
+                {% for ticket in tickets %}
+                {% include "partials/pages/ticket/card_unclassified.html" %}
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% include "partials/pages/ticket/pagination.html" %}
+
+        {% else %}
+        <div class="noresults">
+            <p class="noresults__title">
+                Нет новых заявок
+            </p>
+        </div>
+
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script>
+    window.executor_ids = "{{ executor_ids }}";
+</script>
+
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+{% endblock %}

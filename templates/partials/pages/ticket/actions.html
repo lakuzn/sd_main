@@ -1,0 +1,102 @@
+{# partials/pages/ticket/actions.html #}
+<div class="ticket-actions">
+    {% if current_user.role in ['executor', 'head']
+    and not ticket.executors
+    and ticket.status == 'В обработке'
+    and current_user.department
+    and current_user.department in ticket.departments %}
+    <form method="POST" action="{{ url_for('tickets.take_in_work', ticket_id=ticket.id) }}" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button--sm button--solid--primary">
+            Взять в работу
+        </button>
+    </form>
+    {% endif %}
+
+    {% if current_user in ticket.executors and ticket.status in ['В работе', 'Ожидает ответа'] %}
+    <form method="POST" action="{{ url_for('tickets.request_review', ticket_id=ticket.id) }}" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button--sm button--solid--primary">
+            Запросить проверку у заявителя
+        </button>
+    </form>
+    {% endif %}
+
+    {% if current_user.id == ticket.applicant_id or current_user.role in ['admin'] %}
+
+    {% if ticket.status == 'Решена' %}
+    <button type="button" id="buttonUnResolved" class="button button--solid button--sm">
+        Открыть повторно
+    </button>
+    <button type="button" id="buttonResolved" class="ticket-actions__resolved button button--sm button--solid--success"
+        style="display: none">
+        Решена
+    </button>
+
+    {% else %}
+    <button type="button" id="buttonUnResolved" class="ticket-actions__resolved button button--sm button--solid"
+        style="display: none">
+        Открыть повторно
+    </button>
+    <button type="button" id="buttonResolved" class="ticket-actions__resolved button button--sm button--solid--success">
+        Решена
+    </button>
+    {% endif %}
+
+    {% endif %}
+
+    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Требует проверки' %}
+    <form method="POST" action="{{ url_for('tickets.not_resolved', ticket_id=ticket.id) }}" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button--sm button--solid">
+            Заявка не решена
+        </button>
+    </form>
+    {% endif %}
+
+    {% if (current_user.role in ['head', 'admin', 'classifier'] and ticket.status != 'Решена')
+    or (current_user in ticket.executors) %}
+    <div class="dropdown-relative">
+        <button id="dropdownTicketMore" class="ticket-actions__more button button--sm button--outline">
+            Ещё
+        </button>
+
+        <div id="dropdownTicketMoreList" class="dropdown dropdown-ticket__more" style="display: none;">
+            <div class="dropdown-list">
+                <div class="dropdown-item">
+                    <button type="button" id="buttonInvite" class="button button--outline button--sm button--nowrap">
+                        Пригласить специалиста
+                    </button>
+                </div>
+
+                <div class="dropdown-item">
+                    <button type="button" id="buttonAddComment"
+                        class="ticket-more__button button button--outline button--sm button--nowrap">
+                        Добавить комментарий
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status ==
+    'Решена' %}
+    <button type="button" id="buttonDeleteTicket"
+        class="ticket-actions__resolved button button--sm button--solid--danger">
+        Удалить заявку
+    </button>
+    {% endif %}
+</div>
+
+<!-- Появляется, если появились изменения -->
+<div class="ticket-actions">
+    <button id="ticketChangeParams" type="button" class="button button--solid--primary button--sm"
+        style="display: none;">
+        Применить изменения
+    </button>
+    <button id="ticketChangeParamsCancel" type="button" class="button button--outline button--sm"
+        style="display: none;">
+        Отменить изменения
+    </button>
+</div>

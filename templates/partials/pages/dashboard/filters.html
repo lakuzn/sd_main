@@ -1,0 +1,99 @@
+<div id="dashboardFilters" class="content__filters">
+    <div class="filters__group">
+        {% if current_user.role in ['classifier', 'admin'] %}
+        <div class="filters__item">
+            <div class="filters__dropdown">
+                <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
+                    class="filters__dropdown-button icon--16 icon__more--after button button--md button--outline">
+                    Все категории
+                </button>
+
+                <ul id="filterCategory" role="listbox" aria-label="Фильтр по категории" class="filters__dropdown-list"
+                    style="display: none;">
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="filters__item">
+            <div class="filters__dropdown">
+                <button type="button" id="filterExecutor-button" aria-haspopup="listbox" aria-expanded="false"
+                    class="filters__dropdown-button icon--16 icon__more--after button button--md button--outline">
+                    Все исполнители
+                </button>
+
+                <ul id="filterExecutor" role="listbox" aria-label="Список исполнителей" class="filters__dropdown-list"
+                    style="display: none;"></ul>
+            </div>
+        </div>
+
+        <div class="filters__item">
+            <div class="dropdown-relative">
+                <input type="text" id="filterApplicant" placeholder="Поиск по заявителям"
+                    class="search__input button button--md button--outline">
+
+                <div id="filterApplicantList" class="dropdown dropdown-ticket__person" style="display: none;">
+                    <div class="dropdown-header">
+                        <p class="dropdown-header__title">Заявители</p>
+                        <input type="text" id="executorSearch" class="search__input" placeholder="Начните вводить..."
+                            value="">
+                    </div>
+
+                    <div class="dropdown-list">
+                        {% if executors %}
+                        {% for executor in executors %}
+                        <div class="dropdown-item">
+                            <div id="{{executor.id}}" class="ticket-person button">
+                                <span class="ticket-person__img ticket-person__img--executor">
+                                    {{ get_initials(executor.full_name) }}
+                                </span>
+
+                                <div class="ticket-person__info">
+                                    <p class="ticket-person__label">
+                                        {{executor.full_name}}
+                                    </p>
+                                    <p class="ticket-person__post">
+                                        {{executor.position if executor.position else 'Сотрудник'}}
+                                    </p>
+                                    <p class="ticket-person__department icon--16 icon__department--before">
+                                        {{executor.department.name if executor.department else 'Без отдела'}}
+                                    </p>
+                                    <p class="ticket-person__phone icon--16 icon__phone--before">
+                                        {{executor.phone}}
+                                    </p>
+                                    <p class="ticket-person__email icon--16 icon__email--before">
+                                        {{executor.email}}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p>Заявители не найдены</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="filters__item">
+            <input type="text" id="filterHostName" placeholder="Host Name"
+                class="search__input button button--md button--outline">
+        </div>
+
+        <button type="button" id="filterReset" class="button button--md button--outline">
+            Сбросить
+        </button>
+
+        {% if current_user.role in ['classifier', 'head'] %}
+        <div class="filters__item filters__export">
+            <!-- <input type="date" id="exportStart" class="button button--md button--outline" title="Период: с">
+            <input type="date" id="exportEnd" class="button button--md button--outline" title="Период: по"> -->
+            <a id="exportExcel" href="{{ url_for('dashboards.export_report') }}"
+                class="button button--solid--primary button--md" title="Выгрузить заявки в Excel">
+                Выгрузить в Excel
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>

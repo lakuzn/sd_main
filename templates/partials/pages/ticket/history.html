@@ -1,0 +1,28 @@
+{# partials/pages/ticket/history.html — журнал событий по заявке (для сотрудников) #}
+{% if current_user.role == 'admin' %}
+<div class="ticket-block ticket-block--history">
+    <details class="ticket-history">
+        <summary class="ticket-history__summary button button--outline button--sm button--nowrap">
+            История заявки <span class="ticket-history__count">{{ logs | length }}</span>
+        </summary>
+
+        <ul class="ticket-history__list">
+            {% for log in logs %}
+            <li class="ticket-history__item">
+                <time class="ticket-history__time" datetime="{{ log.created_at.isoformat() }}">
+                    {{ log.created_at.strftime('%d.%m.%Y %H:%M') }}
+                </time>
+                <p class="ticket-history__event">{{ log.event_type }}</p>
+                <p class="ticket-history__details">
+                    {{ log.details }}{% if log.user %} — {{ log.user.full_name }}{% endif %}
+                </p>
+            </li>
+            {% else %}
+            <li class="ticket-history__item">
+                <p class="ticket-history__details">Событий пока нет.</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </details>
+</div>
+{% endif %}

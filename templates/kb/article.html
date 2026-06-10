@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{article.title}}{% endblock %}
+
+{% block content %}
+<section aria-labelledby="answer" class="section">
+    <div class="section__content">
+        <div class="content__child">
+            <a href="{{ url_for ('kb.catalog')}}" class="icon--16 icon__arrowback--before button"
+                title="Назад к каталогу"></a>
+
+            <div class="content__info">
+                {% if article.is_staff_only %}
+                <span>Только для персонала</span>
+                {% endif %}
+
+                <h1 id="answer" class="h1 content__title">
+                    {{article.title}}
+                </h1>
+
+                <p class="content__description">{{article.category.name}}</p>
+            </div>
+        </div>
+        <div class="article-form__richtext">
+            <div class="ql-editor">
+                {{ article.content | safe}}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

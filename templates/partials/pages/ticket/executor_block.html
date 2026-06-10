@@ -1,0 +1,125 @@
+{# partials/pages/ticket/executor_block.html #}
+{% from "macros/initials.html" import get_initials %}
+<div class="dropdown-relative">
+    {% if current_user.role in ['head', 'admin', 'classifier'] and ticket.status != 'Решена' %}
+
+    <div id="dropdownTicketExecutor"
+        class="ticket-executors ticket-executors--select icon--16 icon__more--after button button--outline button--sm">
+        {% if ticket.executors %}
+        {% for executor in ticket.executors %}
+        <div class="ticket-person">
+            <!-- <img src="" alt=""> -->
+            <span class="ticket-person__img ticket-person__img--executor">
+                {{ get_initials(executor.full_name) }}
+            </span>
+            <p class="ticket-person__label">{{executor.full_name}}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="ticket-person">
+            <p class="ticket-person__label">Исполнитель не назначен</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="dropdownTicketExecutorList" class="dropdown dropdown-ticket__person" style="display: none;">
+        <div class="dropdown-header">
+            <p class="dropdown-header__title">Исполнители</p>
+            <input type="text" id="executorSearch" class="search__input" placeholder="Начните вводить..." value="">
+        </div>
+
+        <div class="dropdown-list">
+            {% if executors %}
+            {% for executor in executors %}
+            <div class="dropdown-item">
+                <div id="{{executor.id}}" class="ticket-person button js-executor-item">
+                    <span class="ticket-person__img ticket-person__img--executor">
+                        {{ get_initials(executor.full_name) }}
+                    </span>
+
+                    <div class="ticket-person__info">
+                        <p class="ticket-person__label">
+                            {{executor.full_name}}
+                        </p>
+                        <p class="ticket-person__post">
+                            {{executor.position if executor.position else 'Сотрудник'}}
+                        </p>
+                        <p class="ticket-person__department icon--16 icon__department--before">
+                            {{executor.department.name if executor.department else 'Без отдела'}}
+                        </p>
+                        <p class="ticket-person__phone icon--16 icon__phone--before">
+                            {{executor.phone}}
+                        </p>
+                        <p class="ticket-person__email icon--16 icon__email--before">
+                            {{executor.email}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>Исполнители не найдены</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% else %}
+
+    {% if ticket.executors %}
+    <div id="dropdownTicketExecutorUser" class="ticket-executors button button--outline button--sm">
+        {% for executor in ticket.executors %}
+        <div class="ticket-person">
+            <!-- <img src="" alt=""> -->
+            <span class="ticket-person__img ticket-person__img--executor">
+                {{ get_initials(executor.full_name) }}
+            </span>
+            <p class="ticket-person__label">{{executor.full_name}}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="dropdownTicketExecutorListUser" class="dropdown dropdown-ticket__person" style="display: none;">
+        <div class="dropdown-header">
+            <p class="dropdown-header__title">Исполнители</p>
+        </div>
+
+        <div class="dropdown-list">
+            {% for executor in ticket.executors %}
+            <div class="dropdown-item">
+                <div id="{{executor.id}}" class="ticket-person js-executor-item">
+                    <span class="ticket-person__img ticket-person__img--executor">
+                        {{ get_initials(executor.full_name) }}
+                    </span>
+
+                    <div class="ticket-person__info">
+                        <p class="ticket-person__label">
+                            {{executor.full_name}}
+                        </p>
+                        <p class="ticket-person__post">
+                            {{executor.position}}
+                        </p>
+                        <p class="ticket-person__department icon--16 icon__department--before">
+                            {{executor.department.name if executor.department else 'Без отдела' }}
+                        </p>
+                        <p class="ticket-person__phone icon--16 icon__phone--before">
+                            {{executor.phone or 'Не указан' }}
+                        </p>
+                        <p class="ticket-person__email icon--16 icon__email--before">
+                            {{executor.email}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="ticket-executors button--sm">
+        <div class="ticket-person">
+            <p class="ticket-person__label">Исполнитель не назначен</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>

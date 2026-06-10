@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Архив заявок{% endblock %}
+
+{% block content %}
+<section id="archive-page" class="section" aria-labelledby="archive">
+    <div class="section__content">
+        <div class="content__info">
+            <h1 id="archive" class="h1">Архив заявок</h1>
+            <p id="archiveDescription" class="content__description">Просмотрите ваши закрытые заявки</p>
+        </div>
+
+        <!-- Вкладочный фильтр -->
+        <div class="search-filter" id="archiveTabs">
+            <a href="#" class="button button--sm button--outline active" data-type="my">
+                Мои обращения <span id="count-my">0</span>
+            </a>
+            <a href="#" class="button button--sm button--outline" data-type="executor">
+                Я исполнитель <span id="count-executor">0</span>
+            </a>
+            <a href="#" class="button button--sm button--outline" data-type="all">
+                Все <span id="count-all">0</span>
+            </a>
+        </div>
+
+        <!-- Контейнер для карточек -->
+        <div class="content__wrap">
+            <ul id="archiveCardsContainer" class="content__cards">
+                {% if tickets or executor_tasks_solved %}
+                {% if tickets %}
+                {% if executor_tasks_solved %}
+                <h2 class="h2 content__subtitle">Мои обращения</h2>
+                {% endif %}
+                {% for ticket in tickets %}
+                {% include "partials/pages/ticket/card.html" %}
+                {% endfor %}
+                {% endif %}
+                {% if executor_tasks_solved %}
+                <h2 class="h2 content__subtitle">Заявки, где я исполнитель</h2>
+                {% for ticket in executor_tasks_solved %}
+                {% include "partials/pages/ticket/card.html" %}
+                {% endfor %}
+                {% endif %}
+                {% else %}
+                <li class="noresults__title">Архивных заявок не найдено</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <div id="noResultsMessage" class="noresults" style="display: none;">
+            <p class="noresults__title">Архивных заявок не найдено</p>
+            <a href="{{ url_for('tickets.new_ticket') }}"
+                class="button button--solid--primary button--md noresults__button">
+                Создать новую заявку
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script>
+    window.currentUserId = "{{ current_user.id }}";
+    window.currentUserRole = "{{ current_user.role }}";
+</script>
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+{% endblock %}

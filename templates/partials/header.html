@@ -1,0 +1,71 @@
+<header id="header" class="header">
+    <a href="{{ url_for('home') }}" class="header__logo">
+        <span class="logo__title">Service Desk</span>
+        <span class="logo__description">Портал поддержки</span>
+    </a>
+
+    <nav class="header__nav" id="headerMenu">
+        <span class="nav__title">Меню</span>
+
+        <ul id="menu" class="nav__list">
+            {% if current_user.role == 'classifier' %}
+            <li class="nav__item">
+                <a href="{{ url_for('home') }}"
+                    class="nav__link button icon__list--before icon--16 {% if request.endpoint == 'dashboards.classifier' %} active {% endif %}">
+                    Очередь заявок
+                </a>
+            </li>
+            {% endif %}
+            {% if current_user.role == 'executor' or current_user.role == 'head'%}
+            <li class="nav__item">
+                <a href="{{ url_for('home') }}"
+                    class="nav__link button icon__doc--before icon--16 {% if request.endpoint == 'dashboards.executor' %} active {% endif %}">
+                    Очередь заявок
+                </a>
+            </li>
+            {% endif %}
+            <li class="nav__item">
+                <a href="{{ url_for('dashboards.user') }}"
+                    class="nav__link button icon__home--before icon--16 {% if request.endpoint == 'dashboards.user' %} active {% endif %}">
+                    Мои заявки
+                </a>
+            </li>
+            <li class="nav__item">
+                <a href="{{ url_for('tickets.new_ticket') }}"
+                    class="nav__link button icon__add--before icon--16 {% if request.endpoint == 'tickets.new_ticket' %} active {% endif %}">
+                    Создать заявку
+                </a>
+            </li>
+            <li class="nav__item">
+                <a href="{{ url_for('dashboards.archive') }}"
+                    class="nav__link button icon__archive--before icon--16 {% if request.endpoint == 'dashboards.archive' %} active {% endif %}">
+                    Архив заявок
+                </a>
+            </li>
+            <li class="nav__item">
+                <a href="{{ url_for('kb.catalog') }}"
+                    class="nav__link button icon__kb--before icon--16 {% if request.endpoint == 'kb.catalog' %} active {% endif %}">
+                    База знаний
+                </a>
+            </li>
+        </ul>
+
+        <div class="header__user">
+            <a href="{{ url_for('auth.account') }}" class="user__content button">
+                <!-- Если есть -->
+                <!-- <img src="" alt="" class="user__avatar"> -->
+                <!-- Иначе -->
+                <span class="user__avatar">
+                    {% set name_parts = current_user.full_name.split () %}{{ name_parts [0][0] | upper }}{% if
+                    name_parts | length > 1 %}{{ name_parts [1][0] | upper }}{% endif %}
+                </span>
+                <div class="user__info">
+                    <p class="user__name">{{current_user.full_name}}</p>
+                    <div class="user__dept-role">
+                        <p class="user__dept">{{current_user.department.name}}</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </nav>
+</header>

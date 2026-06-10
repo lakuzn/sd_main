@@ -1,0 +1,92 @@
+{# partials/pages/ticket/modals.html #}
+{% if current_user.role in ['head', 'admin', 'classifier', 'executor'] %}
+<div id="modalComment" class="modal" style="display: none;">
+    <div class="modal__overlay"></div>
+    <div class="modal__content">
+        <div class="modal__header">
+            <h3 class="modal__title h3">Комментарии к заявке</h3>
+            <button type="button" aria-label="Закрыть окно" class="button button--solid modal__close">
+                <span class="sr-only">Закрыть</span>
+                ⤫
+            </button>
+        </div>
+
+        <div id="comment-discussion" class="chat-discussion">
+            <div id="comment-history" class="discussion-chat discussion-chat--comment">
+                {% for comment in comments %}
+                <div class="discussion-chat__message discussion-chat__message--left">
+                    <div class="discussion-chat__message-content">
+                        <div class="message-content__body">
+                            <div class="message-content__title">
+                                <p class="message-content__user">{{comment.author.full_name}}</p>
+                                <time class="message-content__time" datetime="{{comment.created_at.isoformat()}}">
+                                    {{comment.created_at.strftime('%d.%m, %H:%M')}}
+                                </time>
+                            </div>
+
+                            <p class="message-content__description">
+                                {{comment.text | urlize(target="_blank")}}
+                            </p>
+                        </div>
+                        {% set comment_files = comment.attachments | list %}
+                        {% if comment_files %}
+                        <div class="message-attachments">
+                            {% for file in comment_files %}
+                            <a href="{{ url_for('static', filename=file.file_path) }}" target="_blank"
+                                class="message-attachments__item button button--outline">
+                                {{ file.file_name }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+
+        <form id="comment-form" class="chat-form" enctype="multipart/form-data">
+
+            <ul id="comment-files" class="form-files" style="display: none;"></ul>
+
+            <input type="file" multiple name="attachments" id="comment-attachments" accept="*/*"
+                class="form-files__input">
+
+            <textarea name="content" id="comment-input" rows="3" placeholder="Сообщение" class="form__input"></textarea>
+
+            <div class="form-actions">
+                <label for="comment-attachments"
+                    class="form-actions__attachments icon--16 icon__add--before button button--outline"
+                    title="Добавить вложения"></label>
+
+                <button type="submit"
+                    class="form-actions__send button button--solid--primary button--md">Отправить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Решена' %}
+<div id="modalDeleteTicket" class="modal" style="display: none;">
+    <div class="modal__overlay"></div>
+    <div class="modal__content">
+        <div class="modal__header">
+            <h3 class="modal__title h3">Удалить заявку?</h3>
+            <button type="button" aria-label="Закрыть окно" class="button button--solid modal__close">
+                <span class="sr-only">Закрыть</span>
+                ⤫
+            </button>
+        </div>
+        <p class="modal__message">
+            Вы точно хотите удалить заявку? В этом случае Вы не сможете просмотреть информацию по ней.
+        </p>
+
+        <div class="modal__actions">
+            <button type="button" class="button button--outline button--md modal__cancel">Отмена</button>
+            <button type="button" class="button button--solid--danger button--md modal__confirm">Удалить</button>
+        </div>
+    </div>
+</div>
+{% endif %}

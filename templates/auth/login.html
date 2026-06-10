@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru" dir="ltr">
+
+<head>
+    {% include "partials/assets/meta.html" %}
+
+    <title>Service Desk - Вход в систему</title>
+    <meta name="description" content="">
+
+    {% include "partials/assets/favicon.html" %}
+
+    {% include "partials/assets/style.html" %}
+</head>
+
+<body class="body-login">
+    <section aria-labelledby="login" class="section">
+        <div class="section__content">
+
+            <form method="POST" action="{{ url_for('auth.login') }}" class="form-login">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h1 id="login" class="h1">Вход в систему</h1>
+
+                <div class="form-login__item">
+                    <label for="email" class="form-login__item-label">Рабочая почта</label>
+                    <input type="email" name="email" id="email" placeholder="email@polyot.ru" required
+                        aria-required="true" class="form-login__item-input">
+                </div>
+
+                <div class="form-login__item">
+                    <label for="password" class="form-login__item-label">Пароль</label>
+                    <input type="password" name="password" id="password" placeholder="Введите пароль" required
+                        aria-required="true" class="form-login__item-input">
+                </div>
+
+                <button type="submit" class="form-login__button button button--solid--primary button--md">Войти</button>
+            </form>
+        </div>
+    </section>
+
+    {% include "partials/assets/script.html" %}
+
+    {% block script %}{% endblock %}
+</body>
+
+</html>
