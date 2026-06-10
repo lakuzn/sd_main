@@ -1,0 +1,37 @@
+# systemd-сервис для ServiceDesk (запускает приложение через gunicorn).
+#
+# Куда положить:  /etc/systemd/system/servicedesk.service
+# Замените пути/пользователя (заглушки помечены CHANGE-ME при необходимости).
+#
+# Команды управления (см. инструкцию docs/LINUX_DEPLOY_SETUP.md):
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now servicedesk
+#   sudo systemctl status servicedesk
+#   sudo journalctl -u servicedesk -f      (смотреть логи в реальном времени)
+
+[Unit]
+Description=ServiceDesk (gunicorn)
+After=network.target
+
+[Service]
+# Отдельный системный пользователь, от имени которого работает приложение
+User=servicedesk
+Group=servicedesk
+
+# Папка проекта (там лежит run.py и файл .env)
+WorkingDirectory=/opt/servicedesk
+
+# Запуск через gunicorn:
+#   -k gthread  — потоковый воркер (websocket не нужен, Socket.IO работает
+#                 через long-polling; не требует eventlet/gevent и сборки);
+#   -w 1        — один процесс (состояние Socket.IO хранится в памяти процесса);
+#   --threads 8 — до 8 одновременных запросов;
+#   run:app     — объект Flask `app` из файла run.py.
+ExecStart=/opt/servicedesk/.venv/bin/gunicorn -k gthread -w 1 --threads 8 -b 127.0.0.1:8000 run:app
+
+# Перезапускать при падении
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-Login
+Flask-WTF
+Flask-SocketIO
+Flask-Reuploaded
+python-dotenv
+psycopg2-binary
+waitress
+arrow
+Pillow
+openpyxl
+ldap3
+wfastcgi
