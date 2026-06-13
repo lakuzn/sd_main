@@ -61,7 +61,7 @@ def admin():
 @role_required(["classifier", "admin"])
 def classifier():
     page = request.args.get("page", 1, type=int)
-    data = DashboardService.get_classifier_data(current_user.id)
+    data = DashboardService.get_classifier_data(current_user.id, page)
 
     return render_template(
         "dashboards/classifier.html",

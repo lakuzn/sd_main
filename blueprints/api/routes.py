@@ -1,7 +1,8 @@
-from flask import flash, request, jsonify
+from flask import flash, render_template, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app.blueprints.api import api_bp
+from app.services.dashboard_service import DashboardService
 from app.services.ticket_service import TicketService
 from app.services.notification_service import NotificationService
 from app.models import Ticket, Notification, Category, User, Department
@@ -126,6 +127,20 @@ def api_ticket_reply(ticket_id):
                 403,
             )
 
+    # Исполнитель пишет в чат только по своим заявкам (где он назначен) или по
+    # собственному обращению. На заявки коллег по отделу — только просмотр.
+    if (
+        current_user.role == "executor"
+        and current_user.id != ticket.applicant_id
+        and current_user not in ticket.executors
+    ):
+        return (
+            jsonify(
+                {"status": "error", "message": "Вы не являетесь исполнителем этой заявки"}
+            ),
+            403,
+        )
+
     TicketService.create_message(
         ticket_id=ticket_id,
         content=content,
@@ -142,6 +157,13 @@ def api_ticket_reply(ticket_id):
 @role_required(["user", "executor", "classifier", "admin", "head"])
 def api_ticket_change_status(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
+
+    # Менять статус можно только у заявки, к которой есть доступ
+    if not TicketService.can_access_ticket(ticket, current_user):
+        return (
+            jsonify({"status": "error", "message": "У вас нет доступа к этой заявке"}),
+            403,
+        )
 
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
@@ -299,6 +321,19 @@ def api_comment_reply(ticket_id):
                 403,
             )
 
+    # Исполнитель оставляет внутренние комментарии только по своим заявкам
+    if (
+        current_user.role == "executor"
+        and current_user.id != ticket.applicant_id
+        and current_user not in ticket.executors
+    ):
+        return (
+            jsonify(
+                {"status": "error", "message": "Вы не являетесь исполнителем этой заявки"}
+            ),
+            403,
+        )
+
     TicketService.create_comment(
         ticket_id=ticket_id,
         comment=comment_text,
@@ -410,3 +445,64 @@ def get_categories():
             "categories": categories,
         }
     )
+
+# API для фильтрации архива (возвращает JSON с HTML карточек и счётчиками)
+@api_bp.route("/archive/tickets")
+@login_required
+def api_archive_tickets():
+    """
+    API эндпоинт для фильтрации архива.
+    Принимает параметр type (my/executor/all).
+    Возвращает JSON с HTML карточек и количеством заявок.
+    """
+    filter_type = request.args.get("type", "my")
+    user_id = current_user.id
+    role = current_user.role
+
+    # Получаем данные через сервис
+    result = DashboardService.get_archive_filtered_data(
+        user_id=user_id,
+        role=role,
+        filter_type=filter_type
+    )
+
+    # Рендерим карточки в зависимости от типа фильтра
+    my_html = ""
+    executor_html = ""
+
+    if filter_type == "my":
+        my_html = render_template(
+            "partials/pages/ticket/cards.html",
+            tickets=result["my_tickets"],
+            unread_ticket_ids=[],
+            card_unclassified=False
+        )
+    elif filter_type == "executor":
+        executor_html = render_template(
+            "partials/pages/ticket/cards.html",
+            tickets=result["executor_tickets"],
+            unread_ticket_ids=[],
+            card_unclassified=False
+        )
+    else:  # all
+        if result["my_tickets"]:
+            my_html = render_template(
+                "partials/pages/ticket/cards.html",
+                tickets=result["my_tickets"],
+                unread_ticket_ids=[],
+                card_unclassified=False
+            )
+        if result["executor_tickets"]:
+            executor_html = render_template(
+                "partials/pages/ticket/cards.html",
+                tickets=result["executor_tickets"],
+                unread_ticket_ids=[],
+                card_unclassified=False
+            )
+
+    return {
+        "my_html": my_html,
+        "executor_html": executor_html,
+        "count": result["total_count"],
+        "counts": result["counts"]
+    }

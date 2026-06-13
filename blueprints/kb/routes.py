@@ -7,6 +7,7 @@ from app.services.kb_service import KBService
 from app.models.category import Category
 from app.utils.decorators import role_required
 from app.forms.kb_forms import ArticleForm
+from werkzeug.utils import secure_filename
 
 
 @kb_bp.route("/")
@@ -62,7 +63,9 @@ def upload_attachment():
     os.makedirs(upload_folder, exist_ok=True)
 
     original_name = file.filename
-    unique_name = f"{int(datetime.now().timestamp())}_{original_name}"
+    # Имя файла на диске обеззараживаем, оригинальное имя отдаём для отображения.
+    safe_name = secure_filename(original_name) or "file"
+    unique_name = f"{int(datetime.now().timestamp())}_{safe_name}"
     file.save(os.path.join(upload_folder, unique_name))
 
     db_path = f"uploads/kb/{unique_name}"

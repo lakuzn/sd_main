@@ -13,6 +13,7 @@ from app.models import (
 )
 from app.services.log_service import LogService
 from app.extensions import socketio, db
+from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 
@@ -97,41 +98,31 @@ class TicketService:
 
     @staticmethod
     def can_access_ticket(ticket, user):
-        """Проверяет, имеет ли пользователь доступ к просмотру заявки."""
+        """Проверяет, имеет ли пользователь доступ к ПРОСМОТРУ заявки.
+
+        Право на просмотр не даёт права писать или менять заявку — это
+        проверяется отдельно в соответствующих обработчиках.
+        """
         if user.role == "admin":
             return True
 
         if ticket.is_deleted:
             return False
 
+        # Заявитель всегда видит свою заявку
         if user.id == ticket.applicant_id:
             return True
 
-        if ticket.status in ["Новая", "В обработке"]:
-            if user.role == "classifier" or user.role == "executor":
-                return True
-            if user.role == "head" and user.department_id:
-                for dept in ticket.departments:
-                    if dept.id == user.department_id:
-                        return True
-            return False
-
-        if user.role == "classifier":
-            if ticket.classifier_id == user.id or user in ticket.executors:
-                return True
-            # Классификатор контролирует заявки своего отдела (в т.ч. в архиве)
-            if user.department_id:
-                for dept in ticket.departments:
-                    if dept.id == user.department_id:
-                        return True
-            # Нераспределённые заявки доступны классификатору для разбора
-            if not ticket.departments:
-                return True
-            return False
-
+        # Назначенный исполнитель видит заявку
         if user in ticket.executors:
             return True
 
+        # Классификатор (первая линия) видит все заявки
+        if user.role == "classifier":
+            return True
+
+        # Исполнитель и начальник отдела видят все заявки своего отдела —
+        # чтобы помочь коллегам или взять заявку в работу
         if user.role in ["executor", "head"] and user.department_id:
             for dept in ticket.departments:
                 if dept.id == user.department_id:
@@ -436,7 +427,10 @@ class TicketService:
                 continue
 
             original_name = file.filename
-            unique_name = f"{int(datetime.now().timestamp())}_{original_name}"
+            # Имя файла на диске обеззараживаем (защита от выхода за пределы
+            # папки загрузок), оригинальное имя сохраняем для отображения.
+            safe_name = secure_filename(original_name) or "file"
+            unique_name = f"{int(datetime.now().timestamp())}_{safe_name}"
 
             full_path = os.path.join(upload_folder, unique_name)
             file.save(full_path)
@@ -638,7 +632,13 @@ class TicketService:
 
     @staticmethod
     def setup_executor_choices(form):
-        executors = User.query.filter_by(role="executor").order_by(User.full_name).all()
+        # В исполнители можно назначить исполнителей, начальников и классификаторов —
+        # именно их показывают в выпадающем списке на странице заявки.
+        executors = (
+            User.query.filter(User.role.in_(["executor", "head", "classifier"]))
+            .order_by(User.full_name)
+            .all()
+        )
         if hasattr(form, "executor_ids"):
             form.executor_ids.choices = [(u.id, u.full_name) for u in executors]
 
@@ -683,7 +683,7 @@ class TicketService:
                 "created_at": new_comment.created_at.isoformat(),
                 "attachments": attachments_data,
             },
-            room=str(ticket_id),
+            room=f"ticket_staff_{ticket_id}",
         )
 
         # Внутренний комментарий — служебная переписка, поэтому уведомляем
@@ -764,9 +764,6 @@ class TicketService:
             return
 
         ticket.status = new_status
-
-        if new_status == "Решена":
-            ticket.resolved_at = datetime.now()
 
         LogService.create_log(
             ticket_id=ticket.id,

@@ -91,5 +91,6 @@ def logout():
 
 
 @auth_bp.route("/account")
+@login_required
 def account():
     return render_template("auth/account.html")

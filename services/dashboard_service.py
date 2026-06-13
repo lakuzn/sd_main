@@ -162,63 +162,50 @@ class DashboardService:
     @staticmethod
     def get_archive_data(user_id, user_role):
         """Дашборд архивных (решённых) заявок. Состав зависит от роли."""
-
-        context = {
-            "executor_tasks_solved": [],
-            "tickets": [],
-        }
-
+        
         user = User.query.get(user_id)
 
-        # Собственные обращения пользователя, которые уже решены
-        own_solved = Ticket.query.filter(
-            Ticket.applicant_id == user_id,
+        # Базовый запрос: только решённые заявки, не удалённые
+        base_query = Ticket.query.filter(
             Ticket.status == "Решена",
             Ticket.is_deleted == False,
-        ).order_by(Ticket.updated_at.desc())
+        )
+
+        context = {
+            "tickets": [],
+            "executor_tasks_solved": [],
+        }
 
         if user_role == "executor":
-            # Исполнитель видит свои обращения и заявки, где он был исполнителем
-            context["tickets"] = own_solved.all()
+            # Исполнитель видит свои обращения
+            context["tickets"] = base_query.filter(
+                Ticket.applicant_id == user_id
+            ).order_by(Ticket.updated_at.desc()).all()
 
-            context["executor_tasks_solved"] = (
-                Ticket.query.filter(
-                    Ticket.executors.any(id=user_id),
-                    Ticket.status == "Решена",
-                    Ticket.is_deleted == False,
-                )
-                .order_by(Ticket.updated_at.desc())
-                .all()
-            )
+            # И заявки, где он был исполнителем (и не заявитель)
+            context["executor_tasks_solved"] = base_query.filter(
+                Ticket.executors.any(id=user_id),
+                Ticket.applicant_id != user_id
+            ).order_by(Ticket.updated_at.desc()).all()
 
         elif user_role in ("classifier", "head"):
-            # Классификатор и начальник видят все решённые заявки своего отдела
-            context["tickets"] = (
-                Ticket.query.filter(
-                    Ticket.status == "Решена",
-                    Ticket.is_deleted == False,
-                    or_(
-                        Ticket.departments.any(id=user.department_id),
-                        Ticket.applicant_id == user_id,
-                    ),
+            # Классификатор и начальник видят решённые заявки своего отдела + свои
+            context["tickets"] = base_query.filter(
+                db.or_(
+                    Ticket.departments.any(id=user.department_id),
+                    Ticket.applicant_id == user_id,
                 )
-                .order_by(Ticket.updated_at.desc())
-                .all()
-            )
+            ).order_by(Ticket.updated_at.desc()).all()
 
         elif user_role == "admin":
             # Администратор видит все решённые заявки
-            context["tickets"] = (
-                Ticket.query.filter(
-                    Ticket.status == "Решена",
-                    Ticket.is_deleted == False,
-                )
-                .order_by(Ticket.updated_at.desc())
-                .all()
-            )
+            context["tickets"] = base_query.order_by(Ticket.updated_at.desc()).all()
 
         else:
-            context["tickets"] = own_solved.all()
+            # Обычный пользователь видит только свои обращения
+            context["tickets"] = base_query.filter(
+                Ticket.applicant_id == user_id
+            ).order_by(Ticket.updated_at.desc()).all()
 
         return context
 
@@ -419,3 +406,74 @@ class DashboardService:
         wb.save(stream)
         stream.seek(0)
         return stream
+
+    @staticmethod
+    def get_archive_filtered_data(user_id, role, filter_type):
+        """
+        Получает отфильтрованные данные для архива.
+        
+        Args:
+            user_id: ID текущего пользователя
+            role: роль пользователя
+            filter_type: тип фильтра ('my', 'executor', 'all')
+        
+        Returns:
+            dict: {
+                'my_tickets': list,
+                'executor_tickets': list,
+                'total_count': int,
+                'counts': {'my': int, 'executor': int, 'all': int}
+            }
+        """
+        
+        # Базовый запрос: только решённые заявки
+        base_query = Ticket.query.filter(Ticket.status == 'Решена')
+        
+        # Получаем заявки, где пользователь заявитель
+        my_tickets = base_query.filter(
+            Ticket.applicant_id == user_id
+        ).order_by(Ticket.created_at.desc()).all()
+        
+        # Получаем заявки, где пользователь исполнитель (и не заявитель)
+        executor_tickets = base_query.filter(
+           Ticket.executors.any(id=user_id),
+            Ticket.applicant_id != user_id  # исключаем дубли
+        ).order_by(Ticket.created_at.desc()).all()
+        
+        # Подсчёты для счётчиков
+        counts = {
+            'my': base_query.filter(Ticket.applicant_id == user_id).count(),
+            'executor': base_query.filter(
+                Ticket.executors.any(id=user_id),
+                Ticket.applicant_id != user_id
+            ).count(),
+            'all': base_query.filter(
+                db.or_(
+                    Ticket.applicant_id == user_id,
+                    Ticket.executors.any(id=user_id)
+                )
+            ).count()
+        }
+        
+        # Возвращаем данные в зависимости от типа фильтра
+        if filter_type == 'my':
+            return {
+                'my_tickets': my_tickets,
+                'executor_tickets': [],
+                'total_count': len(my_tickets),
+                'counts': counts
+            }
+        elif filter_type == 'executor':
+            return {
+                'my_tickets': [],
+                'executor_tickets': executor_tickets,
+                'total_count': len(executor_tickets),
+                'counts': counts
+            }
+        else:  # all
+            return {
+                'my_tickets': my_tickets,
+                'executor_tickets': executor_tickets,
+                'total_count': len(my_tickets) + len(executor_tickets),
+                'counts': counts
+            }
