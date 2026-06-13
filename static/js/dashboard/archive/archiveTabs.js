@@ -1,5 +1,5 @@
 // js/archive/archiveTabs.js
-let currentType = 'my';
+let currentType = 'all';
 
 function updateCounters(counts) {
     document.getElementById('count-my').textContent = counts.my || 0;
@@ -25,18 +25,13 @@ function renderCards(data) {
 
     let html = '';
     if (data.my_html) {
-        if (data.executor_html) html += '<h2 class="h2 content__subtitle">Мои обращения</h2>';
         html += data.my_html;
     }
     if (data.executor_html) {
-        html += '<h2 class="h2 content__subtitle">Заявки, где я исполнитель</h2>';
         html += data.executor_html;
     }
 
     container.innerHTML = html;
-    if (description && data.count !== undefined) {
-        description.textContent = `Найдено заявок: ${data.count}`;
-    }
 }
 
 async function loadArchiveTickets(type) {
@@ -88,5 +83,4 @@ function initTabs() {
 
 export function initArchiveTabs() {
     initTabs();
-    loadArchiveTickets('my');
 }
