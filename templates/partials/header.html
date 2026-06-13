@@ -8,18 +8,10 @@
         <span class="nav__title">Меню</span>
 
         <ul id="menu" class="nav__list">
-            {% if current_user.role == 'classifier' %}
+            {% if current_user.role != 'user' %}
             <li class="nav__item">
                 <a href="{{ url_for('home') }}"
-                    class="nav__link button icon__list--before icon--16 {% if request.endpoint == 'dashboards.classifier' %} active {% endif %}">
-                    Очередь заявок
-                </a>
-            </li>
-            {% endif %}
-            {% if current_user.role == 'executor' or current_user.role == 'head'%}
-            <li class="nav__item">
-                <a href="{{ url_for('home') }}"
-                    class="nav__link button icon__doc--before icon--16 {% if request.endpoint == 'dashboards.executor' %} active {% endif %}">
+                    class="nav__link button icon__list--before icon--16 {% if request.endpoint == ('dashboards.executor' or 'dashboards.classifier' or 'dashboards.head') %} active {% endif %}">
                     Очередь заявок
                 </a>
             </li>

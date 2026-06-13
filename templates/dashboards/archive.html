@@ -11,14 +11,14 @@
 
         <!-- Вкладочный фильтр -->
         <div class="search-filter" id="archiveTabs">
-            <a href="#" class="button button--sm button--outline active" data-type="my">
-                Мои обращения <span id="count-my">0</span>
+            <a href="#" class="button button--sm button--outline active" data-type="all">
+                Все <span id="count-all">{{ tickets|length + executor_tasks_solved|length }}</span>
+            </a>
+            <a href="#" class="button button--sm button--outline" data-type="my">
+                Мои обращения <span id="count-my">{{ tickets|length }}</span>
             </a>
             <a href="#" class="button button--sm button--outline" data-type="executor">
-                Я исполнитель <span id="count-executor">0</span>
-            </a>
-            <a href="#" class="button button--sm button--outline" data-type="all">
-                Все <span id="count-all">0</span>
+                Я исполнитель <span id="count-executor">{{ executor_tasks_solved|length }}</span>
             </a>
         </div>
 
@@ -27,15 +27,11 @@
             <ul id="archiveCardsContainer" class="content__cards">
                 {% if tickets or executor_tasks_solved %}
                 {% if tickets %}
-                {% if executor_tasks_solved %}
-                <h2 class="h2 content__subtitle">Мои обращения</h2>
-                {% endif %}
                 {% for ticket in tickets %}
                 {% include "partials/pages/ticket/card.html" %}
                 {% endfor %}
                 {% endif %}
                 {% if executor_tasks_solved %}
-                <h2 class="h2 content__subtitle">Заявки, где я исполнитель</h2>
                 {% for ticket in executor_tasks_solved %}
                 {% include "partials/pages/ticket/card.html" %}
                 {% endfor %}
@@ -61,6 +57,12 @@
 <script>
     window.currentUserId = "{{ current_user.id }}";
     window.currentUserRole = "{{ current_user.role }}";
+    // Передаём начальные данные для счётчиков
+    window.archiveCounts = {
+        my: "{{ tickets|length }}",
+        executor: "{{ executor_tasks_solved|length }}",
+        all: "{{ tickets|length + executor_tasks_solved|length }}"
+    };
 </script>
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 {% endblock %}
