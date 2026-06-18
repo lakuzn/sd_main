@@ -1,12 +1,10 @@
 // js/dashboard/dashboardFilters.js
-import { filtersState, getStateParams, resetState } from './filtersState.js';
+import { filtersState, getStateParams, hasActiveFilters, resetState } from './filtersState.js';
 import { updateCardsContainer } from './filterUtils.js';
 import { initCategoryFilter } from './filterCategory.js';
 import { initExecutorFilter } from './filterExecutor.js';
 import { initApplicantFilter } from './filterApplicant.js';
 import { initHostNameFilter } from './filterHostName.js';
-import { initResetFilter } from './filterReset.js';
-import { initExportFilter } from './filterExport.js';
 
 export async function initDashboardFilters() {
     const bar = document.getElementById('dashboardFilters');
@@ -14,10 +12,22 @@ export async function initDashboardFilters() {
 
     const descriptionEl = document.querySelector('.content__description');
     const originalDescription = descriptionEl?.textContent || '';
+    const resetBtn = document.getElementById('filterReset');
+
+    let categoryFilter = null;
+    let executorFilter = null;
+    let applicantFilter = null;
+    let hostNameFilter = null;
+
+    function updateResetButtonVisibility() {
+        if (resetBtn) {
+            resetBtn.style.display = hasActiveFilters() ? 'flex' : 'none';
+        }
+    }
 
     async function applyFilters() {
         const params = getStateParams();
-        const hasFilters = params.toString().length > 0;
+        const hasFilters = hasActiveFilters();
 
         const pagination = document.querySelector('.pagination');
         if (pagination) pagination.style.display = 'none';
@@ -28,16 +38,34 @@ export async function initDashboardFilters() {
             const data = await r.json();
 
             updateCardsContainer(data.html, data.count, hasFilters, originalDescription);
+            updateResetButtonVisibility();
         } catch (e) {
             console.error('Ошибка фильтрации дашборда:', e);
         }
     }
 
+    function resetAllFilters() {
+        resetState();
+
+        categoryFilter?.reset();
+        executorFilter?.reset();
+        applicantFilter?.reset();
+        hostNameFilter?.reset();
+
+        applyFilters();
+    }
+
     // Инициализация всех фильтров
-    await initCategoryFilter(applyFilters);
-    await initExecutorFilter(applyFilters);
-    initApplicantFilter(applyFilters);
-    initHostNameFilter(applyFilters);
-    initResetFilter();
-    initExportFilter();
+    categoryFilter = await initCategoryFilter(applyFilters);
+    executorFilter = await initExecutorFilter(applyFilters);
+    applicantFilter = await initApplicantFilter(applyFilters);
+    hostNameFilter = initHostNameFilter(applyFilters);
+
+    // Инициализация кнопки сброса
+    if (resetBtn) {
+        resetBtn.style.display = 'none';
+        resetBtn.addEventListener('click', resetAllFilters);
+    }
+
+    updateResetButtonVisibility();
 }

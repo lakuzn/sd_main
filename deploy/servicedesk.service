@@ -1,35 +1,44 @@
 # systemd-сервис для ServiceDesk (запускает приложение через gunicorn).
 #
 # Куда положить:  /etc/systemd/system/servicedesk.service
-# Замените пути/пользователя (заглушки помечены CHANGE-ME при необходимости).
+# Команды:
+#   systemctl daemon-reload
+#   systemctl enable --now servicedesk
+#   systemctl status servicedesk
+#   journalctl -u servicedesk -e        (логи; -f — в реальном времени)
 #
-# Команды управления (см. инструкцию docs/LINUX_DEPLOY_SETUP.md):
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now servicedesk
-#   sudo systemctl status servicedesk
-#   sudo journalctl -u servicedesk -f      (смотреть логи в реальном времени)
+# Это ОСНОВНОЙ (рекомендуемый) вариант — связь с Apache по TCP 127.0.0.1:8000.
 
 [Unit]
 Description=ServiceDesk (gunicorn)
-After=network.target
+# Стартуем после сети и базы (база нужна приложению при работе)
+After=network-online.target postgresql.service
+Wants=network-online.target
 
 [Service]
-# Отдельный системный пользователь, от имени которого работает приложение
+# Пользователь/группа, под которыми работает приложение.
 User=servicedesk
 Group=servicedesk
 
-# Папка проекта (там лежит run.py и файл .env)
+# Папка проекта (тут run.py, config.py и .env; пакет приложения — в app/)
 WorkingDirectory=/opt/servicedesk
 
-# Запуск через gunicorn:
-#   -k gthread  — потоковый воркер (websocket не нужен, Socket.IO работает
-#                 через long-polling; не требует eventlet/gevent и сборки);
-#   -w 1        — один процесс (состояние Socket.IO хранится в памяти процесса);
-#   --threads 8 — до 8 одновременных запросов;
-#   run:app     — объект Flask `app` из файла run.py.
-ExecStart=/opt/servicedesk/.venv/bin/gunicorn -k gthread -w 1 --threads 8 -b 127.0.0.1:8000 run:app
+# Чтобы логи приложения сразу попадали в journalctl
+Environment=PYTHONUNBUFFERED=1
 
-# Перезапускать при падении
+# Запуск через gunicorn:
+#   -k gthread   — потоковый воркер (Socket.IO работает через long-polling,
+#                  eventlet/gevent не нужны);
+#   -w 1         — ОДИН процесс (состояние Socket.IO хранится в памяти процесса,
+#                  при нескольких воркерах чат «разъедется» — НЕ увеличивайте);
+#   --threads 8  — до 8 одновременных запросов;
+#   --timeout 120 — запас по времени на тяжёлые операции (выгрузка Excel и т.п.);
+#   -b 127.0.0.1:8000 — слушать только localhost (наружу не торчит, доступ только
+#                  через Apache);
+#   run:app      — объект Flask `app` из файла run.py.
+ExecStart=/opt/servicedesk/.venv/bin/gunicorn -k gthread -w 1 --threads 8 --timeout 120 -b 127.0.0.1:8000 run:app
+
+# Перезапуск при падении
 Restart=always
 RestartSec=3
 

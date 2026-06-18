@@ -1,5 +1,4 @@
 // js/dashboard/filtersState.js
-// (состояние фильтров)
 export const filtersState = {
     category_id: '',
     executor_id: '',
@@ -20,6 +19,11 @@ export function getStateParams() {
     if (filtersState.applicant_id) params.set('applicant_id', filtersState.applicant_id);
     if (filtersState.host_name) params.set('host_name', filtersState.host_name);
     return params;
+}
+
+export function hasActiveFilters() {
+    return !!(filtersState.category_id || filtersState.executor_id ||
+        filtersState.applicant_id || filtersState.host_name);
 }
 
 export function resetState() {

@@ -1,9 +1,10 @@
 // js/dashboard/filterReset.js
-export function initResetFilter() {
+export function initResetFilter(resetCallback) {
     const resetBtn = document.getElementById('filterReset');
     if (!resetBtn) return;
 
-    resetBtn.addEventListener('click', () => {
-        window.location.reload();
-    });
+    // Если передан колбэк, используем его
+    if (resetCallback) {
+        resetBtn.addEventListener('click', resetCallback);
+    }
 }
