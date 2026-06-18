@@ -8,11 +8,17 @@ load_dotenv()
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SERCET_KEY")
+    # Поддерживаем оба написания: правильное SECRET_KEY и историческое
+    # SERCET_KEY (с опечаткой) — чтобы старые .env продолжали работать.
+    SECRET_KEY = os.environ.get("SECRET_KEY") or os.environ.get("SERCET_KEY")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
 
     # Отключение лишней функции слежения за изменениями
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Максимальный размер загружаемого файла — 100 МБ
+    # (запрос больше этого размера будет отклонён сервером)
+    MAX_CONTENT_LENGTH = 100 * 1024 * 1024
 
     # ======================================================================
     # Active Directory / LDAP
@@ -23,36 +29,43 @@ class Config:
     # того, чтобы приложение запускалось без падения.
     # ======================================================================
 
-    # Адрес контроллера домена для LDAP. Для обычного LDAP — порт 389,
-    # для защищённого LDAPS — порт 636 (рекомендуется).
-    # <<< УЗНАТЬ: имя/адрес контроллера домена, например dc01.company.local >>>
+    # Адрес контроллера домена для LDAP. Можно указать НЕСКОЛЬКО адресов через
+    # запятую — приложение будет использовать их как отказоустойчивый пул:
+    # если один контроллер недоступен, ldap3 переключится на следующий.
+    # Для обычного LDAP — порт 389, для защищённого LDAPS — порт 636 (рекомендуется).
+    # <<< УЗНАТЬ: адрес(а) контроллеров домена >>>
+    # Пример одного:    "ldaps://dc01..ru"
+    # Пример нескольких: "ldaps://dc01..ru,ldaps://dc02..ru"
     AD_LDAP_SERVER = os.environ.get(
-        "AD_LDAP_SERVER", "ldap://CHANGE-ME-dc01.example.local"
+        "AD_LDAP_SERVER",
+        "ldaps://srv01002.polyot.ru,ldaps://srv01005.polyot.ru,ldaps://srv01006.polyot.ru ",
     )
 
     # Использовать ли LDAPS (шифрование TLS). True — порт 636.
-    AD_USE_SSL = os.environ.get("AD_USE_SSL", "false").lower() == "true"
+    AD_USE_SSL = os.environ.get("AD_USE_SSL", "true").lower() == "true"
 
     # NetBIOS-имя домена (короткое), используется в логине вида DOMAIN\user.
     # <<< УЗНАТЬ: например COMPANY >>>
-    AD_DOMAIN = os.environ.get("AD_DOMAIN", "EXAMPLE")
+    AD_DOMAIN = os.environ.get("AD_DOMAIN", "POLYOT")
 
     # Полное (FQDN) имя домена — для адресов почты/UPN по умолчанию.
-    # <<< УЗНАТЬ: например company.local >>>
-    AD_DOMAIN_FQDN = os.environ.get("AD_DOMAIN_FQDN", "example.local")
+    AD_DOMAIN_FQDN = os.environ.get(
+        "AD_DOMAIN_FQDN", "srv01002.polyot.ru,srv01005.polyot.ru,srv01006.polyot.ru"
+    )
 
     # Базовая ветка (Base DN), внутри которой искать пользователей.
     # <<< УЗНАТЬ: например DC=company,DC=local или OU=Сотрудники,DC=company,DC=local >>>
-    AD_BASE_DN = os.environ.get("AD_BASE_DN", "DC=example,DC=local")
+    AD_BASE_DN = os.environ.get(
+        "AD_BASE_DN", "OU=Person,OU=Users,OU=Local,DC=Polyot,DC=ru"
+    )
 
     # Сервисная учётная запись для ЧТЕНИЯ каталога (нужны только права чтения).
     # Формат логина: DOMAIN\учётка  (или UPN: учётка@company.local)
-    # <<< УЗНАТЬ: логин и пароль сервисной учётки только-для-чтения >>>
-    AD_BIND_USER = os.environ.get("AD_BIND_USER", "EXAMPLE\\svc-servicedesk-read")
-    AD_BIND_PASSWORD = os.environ.get("AD_BIND_PASSWORD", "CHANGE-ME")
+    AD_BIND_USER = os.environ.get("AD_BIND_USER", "POLYOT\srvc01014")
+    AD_BIND_PASSWORD = os.environ.get("AD_BIND_PASSWORD", "W3j9Tg6Pze7LHt5")
 
     # Способ привязки к LDAP: "NTLM" (привычно для AD) или "SIMPLE" (обычно по LDAPS).
-    AD_AUTH_METHOD = os.environ.get("AD_AUTH_METHOD", "NTLM")
+    AD_AUTH_METHOD = os.environ.get("AD_AUTH_METHOD", "SIMPLE")
 
     # LDAP-фильтр для выборки пользователей.
     # По умолчанию — все учётные записи людей (включая отключённые: их мы
@@ -66,22 +79,18 @@ class Config:
     # Формат: "CN_группы=роль;CN_группы=роль"
     # Пример: "ServiceDesk-Classifiers=classifier;ServiceDesk-Executors=executor"
     # <<< УЗНАТЬ: точные имена (CN) групп безопасности AD >>>
-    AD_GROUP_ROLE_MAP = os.environ.get("AD_GROUP_ROLE_MAP", "")
+    # AD_GROUP_ROLE_MAP = os.environ.get("AD_GROUP_ROLE_MAP", "")
 
     # Роль по умолчанию для новых пользователей, не попавших ни в одну группу.
     AD_DEFAULT_ROLE = os.environ.get("AD_DEFAULT_ROLE", "user")
 
     # ======================================================================
     # Аутентификация через Kerberos (Single Sign-On)
-    # ----------------------------------------------------------------------
-    # Сам Kerberos выполняет IIS (Windows Authentication / Negotiate). Приложение
-    # лишь доверяет уже аутентифицированному имени пользователя, которое IIS
-    # передаёт в переменной окружения REMOTE_USER (вида DOMAIN\user или user@FQDN).
     # ======================================================================
 
-    # Включить вход по Kerberos/Windows (SSO). На рабочем сервере IIS — true,
-    # на машине разработчика без домена оставьте false (тогда работает вход
+    # Включить вход по Kerberos/Windows (SSO). На рабочем сервере — true,
+    # на машине разработчика без домена false (тогда работает вход
     # по логину/паролю как раньше).
     KERBEROS_SSO_ENABLED = (
-        os.environ.get("KERBEROS_SSO_ENABLED", "false").lower() == "true"
+        os.environ.get("KERBEROS_SSO_ENABLED", "true").lower() == "true"
     )

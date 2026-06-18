@@ -7,9 +7,8 @@ Flask-SocketIO
 Flask-Reuploaded
 python-dotenv
 psycopg2-binary
-waitress
 arrow
 Pillow
 openpyxl
 ldap3
-wfastcgi
+gunicorn
