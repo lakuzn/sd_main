@@ -35,8 +35,15 @@ Environment=PYTHONUNBUFFERED=1
 #   --timeout 120 — запас по времени на тяжёлые операции (выгрузка Excel и т.п.);
 #   -b 127.0.0.1:8000 — слушать только localhost (наружу не торчит, доступ только
 #                  через Apache);
+#   --access-logfile - --error-logfile -  — журналы доступа и ошибок в stdout/stderr;
+#   --capture-output  — перехватывать print()/логи приложения;
+#   --log-level info  — уровень детализации.
+#   Вместе это устраняет прежнее «journalctl -u servicedesk: no entries» —
+#   теперь каждый запрос и каждая ошибка видны командой journalctl -u servicedesk -e.
 #   run:app      — объект Flask `app` из файла run.py.
-ExecStart=/opt/servicedesk/.venv/bin/gunicorn -k gthread -w 1 --threads 8 --timeout 120 -b 127.0.0.1:8000 run:app
+ExecStart=/opt/servicedesk/.venv/bin/gunicorn -k gthread -w 1 --threads 8 --timeout 120 \
+          --access-logfile - --error-logfile - --capture-output --log-level info \
+          -b 127.0.0.1:8000 run:app
 
 # Перезапуск при падении
 Restart=always
