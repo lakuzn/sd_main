@@ -2,12 +2,36 @@ from flask import flash, render_template, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app.blueprints.api import api_bp
+from app.services.archive_service import ArchiveService
 from app.services.dashboard_service import DashboardService
 from app.services.ticket_service import TicketService
 from app.services.notification_service import NotificationService
 from app.models import Ticket, Notification, Category, User, Department
 from app.extensions import socketio
 from app.utils.decorators import role_required
+
+
+@api_bp.route("/users/all", methods=["GET"])
+@login_required
+def get_all_users():
+    """Получение всех пользователей с ролью 'user' для фильтра заявителей"""
+    query = User.query.filter_by(is_active=True)
+
+    users = query.order_by(User.full_name).all()
+
+    return jsonify(
+        [
+            {
+                "id": u.id,
+                "full_name": u.full_name,
+                "position": u.position or "Сотрудник",
+                "department": u.department.name if u.department else "Без отдела",
+                "phone": u.phone or "Не указан",
+                "email": u.email or "Не указан",
+            }
+            for u in users
+        ]
+    )
 
 
 # Поиск пользователей (для создания заявки от имени другого пользователя)
@@ -34,9 +58,10 @@ def search_users():
             {
                 "id": u.id,
                 "full_name": u.full_name,
-                "position": u.position or "—",
+                "position": u.position or "Сотрудник",
                 "department": u.department.name if u.department else "Без отдела",
-                "email": u.email,
+                "phone": u.phone or "Не указан",
+                "email": u.email or "Не указан",
             }
             for u in users
         ]
@@ -136,7 +161,10 @@ def api_ticket_reply(ticket_id):
     ):
         return (
             jsonify(
-                {"status": "error", "message": "Вы не являетесь исполнителем этой заявки"}
+                {
+                    "status": "error",
+                    "message": "Вы не являетесь исполнителем этой заявки",
+                }
             ),
             403,
         )
@@ -329,7 +357,10 @@ def api_comment_reply(ticket_id):
     ):
         return (
             jsonify(
-                {"status": "error", "message": "Вы не являетесь исполнителем этой заявки"}
+                {
+                    "status": "error",
+                    "message": "Вы не являетесь исполнителем этой заявки",
+                }
             ),
             403,
         )
@@ -446,63 +477,28 @@ def get_categories():
         }
     )
 
+
 # API для фильтрации архива (возвращает JSON с HTML карточек и счётчиками)
 @api_bp.route("/archive/tickets")
 @login_required
 def api_archive_tickets():
-    """
-    API эндпоинт для фильтрации архива.
-    Принимает параметр type (my/executor/all).
-    Возвращает JSON с HTML карточек и количеством заявок.
-    """
-    filter_type = request.args.get("type", "my")
-    user_id = current_user.id
-    role = current_user.role
+    """API для получения архива заявок с фильтрацией"""
+    filter_type = request.args.get("type", "all")
 
-    # Получаем данные через сервис
-    result = DashboardService.get_archive_filtered_data(
-        user_id=user_id,
-        role=role,
-        filter_type=filter_type
+    # Получаем данные архива
+    data = ArchiveService.get_archive_data(
+        current_user.id, current_user.role, filter_type
     )
 
-    # Рендерим карточки в зависимости от типа фильтра
-    my_html = ""
-    executor_html = ""
+    # Рендерим HTML для карточек
+    tickets_html = render_template(
+        "partials/pages/archive/ticket_list.html", tickets=data["tickets"]
+    )
 
-    if filter_type == "my":
-        my_html = render_template(
-            "partials/pages/ticket/cards.html",
-            tickets=result["my_tickets"],
-            unread_ticket_ids=[],
-            card_unclassified=False
-        )
-    elif filter_type == "executor":
-        executor_html = render_template(
-            "partials/pages/ticket/cards.html",
-            tickets=result["executor_tickets"],
-            unread_ticket_ids=[],
-            card_unclassified=False
-        )
-    else:  # all
-        if result["my_tickets"]:
-            my_html = render_template(
-                "partials/pages/ticket/cards.html",
-                tickets=result["my_tickets"],
-                unread_ticket_ids=[],
-                card_unclassified=False
-            )
-        if result["executor_tickets"]:
-            executor_html = render_template(
-                "partials/pages/ticket/cards.html",
-                tickets=result["executor_tickets"],
-                unread_ticket_ids=[],
-                card_unclassified=False
-            )
-
-    return {
-        "my_html": my_html,
-        "executor_html": executor_html,
-        "count": result["total_count"],
-        "counts": result["counts"]
-    }
+    return jsonify(
+        {
+            "tickets_html": tickets_html,
+            "counts": data["counts"],
+            "current_filter": data["current_filter"],
+        }
+    )

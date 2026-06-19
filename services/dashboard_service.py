@@ -1,6 +1,5 @@
 from app.models import Ticket, User, Department, Category
 from sqlalchemy import func, or_, and_, case
-from app.extensions import db
 from datetime import datetime
 
 
@@ -160,56 +159,6 @@ class DashboardService:
         }
 
     @staticmethod
-    def get_archive_data(user_id, user_role):
-        """Дашборд архивных (решённых) заявок. Состав зависит от роли."""
-        
-        user = User.query.get(user_id)
-
-        # Базовый запрос: только решённые заявки, не удалённые
-        base_query = Ticket.query.filter(
-            Ticket.status == "Решена",
-            Ticket.is_deleted == False,
-        )
-
-        context = {
-            "tickets": [],
-            "executor_tasks_solved": [],
-        }
-
-        if user_role == "executor":
-            # Исполнитель видит свои обращения
-            context["tickets"] = base_query.filter(
-                Ticket.applicant_id == user_id
-            ).order_by(Ticket.updated_at.desc()).all()
-
-            # И заявки, где он был исполнителем (и не заявитель)
-            context["executor_tasks_solved"] = base_query.filter(
-                Ticket.executors.any(id=user_id),
-                Ticket.applicant_id != user_id
-            ).order_by(Ticket.updated_at.desc()).all()
-
-        elif user_role in ("classifier", "head"):
-            # Классификатор и начальник видят решённые заявки своего отдела + свои
-            context["tickets"] = base_query.filter(
-                db.or_(
-                    Ticket.departments.any(id=user.department_id),
-                    Ticket.applicant_id == user_id,
-                )
-            ).order_by(Ticket.updated_at.desc()).all()
-
-        elif user_role == "admin":
-            # Администратор видит все решённые заявки
-            context["tickets"] = base_query.order_by(Ticket.updated_at.desc()).all()
-
-        else:
-            # Обычный пользователь видит только свои обращения
-            context["tickets"] = base_query.filter(
-                Ticket.applicant_id == user_id
-            ).order_by(Ticket.updated_at.desc()).all()
-
-        return context
-
-    @staticmethod
     def get_admin_data():
         """Дашборд администратора: все активные заявки в системе."""
         tickets = (
@@ -266,19 +215,18 @@ class DashboardService:
 
     @staticmethod
     def get_filter_options(user):
-        """Опции для фильтров дашборда (отделы и исполнители) с учётом роли."""
+        """Опции для фильтров дашборда (категории и исполнители) с учётом роли."""
         categories = []
         executors = []
 
         if user.role in ("classifier", "admin"):
             categories = Category.query.order_by(Category.name).all()
             executors = (
-                User.query.filter(User.role.in_(["executor", "head"]))
+                User.query.filter(User.role.in_(["classifier", "executor", "head"]))
                 .order_by(User.full_name)
                 .all()
             )
         elif user.role in ("executor", "head"):
-            # Исполнители видят список исполнителей только своего отдела
             executors = (
                 User.query.filter(
                     User.role.in_(["executor", "head"]),
@@ -290,7 +238,17 @@ class DashboardService:
 
         return {
             "categories": [{"id": c.id, "name": c.name} for c in categories],
-            "executors": [{"id": u.id, "name": u.full_name} for u in executors],
+            "executors": [
+                {
+                    "id": u.id,
+                    "name": u.full_name,
+                    "position": u.position or "Сотрудник",
+                    "department": u.department.name if u.department else "Без отдела",
+                    "phone": u.phone or "Не указан",
+                    "email": u.email or "Не указан",
+                }
+                for u in executors
+            ],
         }
 
     @staticmethod
@@ -406,74 +364,3 @@ class DashboardService:
         wb.save(stream)
         stream.seek(0)
         return stream
-
-    @staticmethod
-    def get_archive_filtered_data(user_id, role, filter_type):
-        """
-        Получает отфильтрованные данные для архива.
-        
-        Args:
-            user_id: ID текущего пользователя
-            role: роль пользователя
-            filter_type: тип фильтра ('my', 'executor', 'all')
-        
-        Returns:
-            dict: {
-                'my_tickets': list,
-                'executor_tickets': list,
-                'total_count': int,
-                'counts': {'my': int, 'executor': int, 'all': int}
-            }
-        """
-        
-        # Базовый запрос: только решённые заявки
-        base_query = Ticket.query.filter(Ticket.status == 'Решена')
-        
-        # Получаем заявки, где пользователь заявитель
-        my_tickets = base_query.filter(
-            Ticket.applicant_id == user_id
-        ).order_by(Ticket.created_at.desc()).all()
-        
-        # Получаем заявки, где пользователь исполнитель (и не заявитель)
-        executor_tickets = base_query.filter(
-           Ticket.executors.any(id=user_id),
-            Ticket.applicant_id != user_id  # исключаем дубли
-        ).order_by(Ticket.created_at.desc()).all()
-        
-        # Подсчёты для счётчиков
-        counts = {
-            'my': base_query.filter(Ticket.applicant_id == user_id).count(),
-            'executor': base_query.filter(
-                Ticket.executors.any(id=user_id),
-                Ticket.applicant_id != user_id
-            ).count(),
-            'all': base_query.filter(
-                db.or_(
-                    Ticket.applicant_id == user_id,
-                    Ticket.executors.any(id=user_id)
-                )
-            ).count()
-        }
-        
-        # Возвращаем данные в зависимости от типа фильтра
-        if filter_type == 'my':
-            return {
-                'my_tickets': my_tickets,
-                'executor_tickets': [],
-                'total_count': len(my_tickets),
-                'counts': counts
-            }
-        elif filter_type == 'executor':
-            return {
-                'my_tickets': [],
-                'executor_tickets': executor_tickets,
-                'total_count': len(executor_tickets),
-                'counts': counts
-            }
-        else:  # all
-            return {
-                'my_tickets': my_tickets,
-                'executor_tickets': executor_tickets,
-                'total_count': len(my_tickets) + len(executor_tickets),
-                'counts': counts
-            }

@@ -21,5 +21,7 @@ class InternalComment(db.Model):
         "Attachment",
         backref="comment",
         cascade="all, delete-orphan",
-        lazy="dynamic",
+        # selectin вместо dynamic — батч-загрузка вложений всех комментариев одним
+        # запросом вместо N+1 (см. пояснение в models/message.py).
+        lazy="selectin",
     )

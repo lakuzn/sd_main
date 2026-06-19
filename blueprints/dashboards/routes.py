@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from flask import render_template, request, send_file, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app.blueprints.dashboards import dashboards_bp
+from app.services.archive_service import ArchiveService
 from app.services.dashboard_service import DashboardService
 from app.utils.decorators import role_required
 
@@ -39,22 +40,6 @@ def executor():
     )
 
 
-# Дашборд админа
-@dashboards_bp.route("/admin")
-@login_required
-@role_required(["admin"])
-def admin():
-    data = DashboardService.get_admin_data()
-
-    return render_template(
-        "dashboards/admin.html",
-        tickets=data["tickets"],
-        # category_data=data["category_data"],
-        # status_data=data["status_data"],
-        overdue_count=data["overdue_count"],
-    )
-
-
 # Дашборд классификатора
 @dashboards_bp.route("/classifier")
 @login_required
@@ -65,6 +50,22 @@ def classifier():
 
     return render_template(
         "dashboards/classifier.html",
+        tickets=data["tickets"],
+        pagination=data["pagination"],
+        unread_ticket_ids=data["unread_ticket_ids"],
+    )
+
+
+# Дашборд админа
+@dashboards_bp.route("/admin")
+@login_required
+@role_required(["admin"])
+def admin():
+    page = request.args.get("page", 1, type=int)
+    data = DashboardService.get_classifier_data(current_user.id, page)
+
+    return render_template(
+        "dashboards/admin.html",
         tickets=data["tickets"],
         pagination=data["pagination"],
         unread_ticket_ids=data["unread_ticket_ids"],
@@ -141,9 +142,14 @@ def export_report():
 @dashboards_bp.route("/archive")
 @login_required
 def archive():
-    context = DashboardService.get_archive_data(current_user.id, current_user.role)
+    """Страница архива заявок"""
+    data = ArchiveService.get_archive_data(current_user.id, current_user.role, "all")
+    categories = ArchiveService.get_categories_for_role(current_user.role, current_user)
 
     return render_template(
         "dashboards/archive.html",
-        **context,
+        tickets=data["tickets"],
+        counts=data["counts"],
+        categories=categories,
+        current_filter=data["current_filter"],
     )

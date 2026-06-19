@@ -13,6 +13,7 @@ from app.models import (
 )
 from app.services.log_service import LogService
 from app.extensions import socketio, db
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -471,8 +472,11 @@ class TicketService:
             form.category_ids.data = [c.id for c in ticket.categories]
             form.executor_ids.data = [u.id for u in ticket.executors]
 
+        # joinedload(sender) — авторы сообщений грузятся вместе с сообщениями
+        # (1 запрос вместо N). Вложения подтянутся автоматически через lazy="selectin".
         messages = (
             Message.query.filter_by(ticket_id=ticket.id)
+            .options(joinedload(Message.sender))
             .order_by(Message.created_at.asc())
             .all()
         )
@@ -498,12 +502,14 @@ class TicketService:
         if current_user.role != "user":
             context["comments"] = (
                 InternalComment.query.filter_by(ticket_id=ticket.id)
+                .options(joinedload(InternalComment.author))
                 .order_by(InternalComment.created_at.asc())
                 .all()
             )
             # История событий по заявке (журнал) — показываем сотрудникам
             context["logs"] = (
                 ActivityLog.query.filter_by(ticket_id=ticket.id)
+                .options(joinedload(ActivityLog.user))
                 .order_by(ActivityLog.created_at.desc())
                 .limit(50)
                 .all()

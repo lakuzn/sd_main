@@ -19,7 +19,12 @@ class Message(db.Model):
         "Attachment",
         backref="message",
         cascade="all, delete-orphan",
-        lazy="dynamic",
+        # selectin вместо dynamic: вложения всех загруженных сообщений
+        # подгружаются ОДНИМ запросом (WHERE message_id IN ...), а не по отдельному
+        # запросу на каждое сообщение — это убирает N+1 при отрисовке переписки.
+        # Бонус: в шаблоне `{% if message.attachments %}` теперь корректно ложно,
+        # когда вложений нет (у dynamic это объект-запрос, всегда истинный).
+        lazy="selectin",
     )
 
     def __repr__(self):
