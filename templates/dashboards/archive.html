@@ -5,40 +5,34 @@
 <section id="archive-page" class="section" aria-labelledby="archive">
     <div class="section__content">
         <div class="content__info">
-            <h1 id="archive" class="h1">Архив заявок</h1>
+            <div class="content__info-group">
+                <h1 id="archive" class="h1">Архив заявок</h1>
+                {% if current_user.role in ['classifier', 'head', 'admin'] %}
+                <a id="exportExcel" href="{{ url_for('dashboards.export_report') }}"
+                    class="button button--icon button--sm icon--24 icon__excel--before"
+                    title="Выгрузить заявки в Excel">
+                </a>
+                {% endif %}
+            </div>
             <p id="archiveDescription" class="content__description">Просмотрите ваши закрытые заявки</p>
         </div>
 
-        <!-- Вкладочный фильтр -->
+
+        <!-- Динамические кнопки-фильтры -->
         <div class="search-filter" id="archiveTabs">
-            <a href="#" class="button button--sm button--outline active" data-type="all">
-                Все <span id="count-all">{{ tickets|length + executor_tasks_solved|length }}</span>
+            {% for category in categories %}
+            <a href="#" class="button button--sm button--outline {% if loop.first %}active{% endif %}"
+                data-type="{{ category.key }}">
+                {{ category.label }}
+                <span id="count-{{ category.key }}">{{ counts.get(category.key, 0) }}</span>
             </a>
-            <a href="#" class="button button--sm button--outline" data-type="my">
-                Мои обращения <span id="count-my">{{ tickets|length }}</span>
-            </a>
-            <a href="#" class="button button--sm button--outline" data-type="executor">
-                Я исполнитель <span id="count-executor">{{ executor_tasks_solved|length }}</span>
-            </a>
+            {% endfor %}
         </div>
 
         <!-- Контейнер для карточек -->
         <div class="content__wrap">
             <ul id="archiveCardsContainer" class="content__cards">
-                {% if tickets or executor_tasks_solved %}
-                {% if tickets %}
-                {% for ticket in tickets %}
-                {% include "partials/pages/ticket/card.html" %}
-                {% endfor %}
-                {% endif %}
-                {% if executor_tasks_solved %}
-                {% for ticket in executor_tasks_solved %}
-                {% include "partials/pages/ticket/card.html" %}
-                {% endfor %}
-                {% endif %}
-                {% else %}
-                <li class="noresults__title">Архивных заявок не найдено</li>
-                {% endif %}
+                {% include "partials/pages/archive/ticket_list.html" %}
             </ul>
         </div>
 
@@ -53,16 +47,11 @@
 </section>
 {% endblock %}
 
+
+{% if current_user.role in ['head', 'admin', 'classifier'] %}
+{% include "partials/pages/archive/modals.html" %}
+{% endif %}
+
 {% block script %}
-<script>
-    window.currentUserId = "{{ current_user.id }}";
-    window.currentUserRole = "{{ current_user.role }}";
-    // Передаём начальные данные для счётчиков
-    window.archiveCounts = {
-        my: "{{ tickets|length }}",
-        executor: "{{ executor_tasks_solved|length }}",
-        all: "{{ tickets|length + executor_tasks_solved|length }}"
-    };
-</script>
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 {% endblock %}

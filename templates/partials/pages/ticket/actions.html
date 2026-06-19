@@ -45,7 +45,8 @@
 
     {% endif %}
 
-    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Требует проверки' %}
+    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Требует
+    проверки' %}
     <form method="POST" action="{{ url_for('tickets.not_resolved', ticket_id=ticket.id) }}" style="display: inline;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="button button--sm button--solid">
@@ -57,7 +58,8 @@
     {% if (current_user.role in ['head', 'admin', 'classifier'] and ticket.status != 'Решена')
     or (current_user in ticket.executors) %}
     <div class="dropdown-relative">
-        <button id="dropdownTicketMore" class="ticket-actions__more button button--sm button--outline">
+        <button id="dropdownTicketMore"
+            class="ticket-actions__more icon--14 icon__more--after button button--sm button--outline">
             Ещё
         </button>
 

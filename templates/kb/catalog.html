@@ -12,28 +12,26 @@
 
         {% if grouped_articles %}
         <div id="filtersFaq" class="content__filters">
-            <div class="filters__group">
-                <!-- Начало. Категории -->
-                <div class="filters__item">
-                    <div class="filters__dropdown">
-                        <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
-                            class="filters__dropdown-button icon--16 icon__more--after button button--md button--outline">
-                            Все категории
-                        </button>
+            <!-- Начало. Категории -->
+            <div class="filters__item">
+                <div class="filters__dropdown dropdown-relative">
+                    <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
+                        class="filters__dropdown-button icon--14 icon__more--after button button--sm button--outline">
+                        Все категории
+                    </button>
 
-                        <ul id="filterCategory" role="listbox" aria-label="Список категорий"
-                            class="filters__dropdown-list">
-                        </ul>
-                    </div>
+                    <ul id="filterCategory" role="listbox" aria-label="Список категорий"
+                        class="filters__dropdown-list dropdown-categories">
+                    </ul>
                 </div>
-                <!-- Конец. Категории -->
-                {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
-                <a href="{{ url_for('kb.create_article') }}"
-                    class="button button--solid--primary button--md noresults__button">
-                    Создать статью
-                </a>
-                {% endif %}
             </div>
+            <!-- Конец. Категории -->
+            {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
+            <a href="{{ url_for('kb.create_article') }}"
+                class="button button--solid--primary button--sm noresults__button">
+                Создать статью
+            </a>
+            {% endif %}
         </div>
 
         <div class="content__wrap">

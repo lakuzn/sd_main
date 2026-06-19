@@ -18,7 +18,22 @@
 
             <form method="POST" action="{{ url_for('auth.login') }}" class="form-login">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="next" value="{{ next or '' }}">
                 <h1 id="login" class="h1">Вход в систему</h1>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    <ul class="form-login__messages" style="list-style:none;padding:0;margin:0 0 12px;">
+                      {% for category, msg in messages %}
+                        <li class="form-login__message form-login__message--{{ category }}"
+                            style="padding:8px 12px;margin-bottom:6px;border-radius:6px;
+                                   color:#fff;background:{{ '#c0392b' if category in ['danger','error'] else ('#e67e22' if category=='warning' else '#27ae60') }};">
+                          {{ msg }}
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                {% endwith %}
 
                 <div class="form-login__item">
                     <label for="email" class="form-login__item-label">Рабочая почта</label>
@@ -34,6 +49,14 @@
 
                 <button type="submit" class="form-login__button button button--solid--primary button--md">Войти</button>
             </form>
+
+            {# Доменный вход (Kerberos / доменный логин+пароль). Ведёт на /auth/sso,
+               где Apache выполняет доменную аутентификацию. #}
+            <a href="{{ url_for('auth.sso', next=next) }}"
+               class="form-login__button button button--md"
+               style="display:block;text-align:center;margin-top:12px;">
+                Войти по доменной учётной записи
+            </a>
         </div>
     </section>
 

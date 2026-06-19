@@ -1,0 +1,57 @@
+{# partials/pages/ticket/dashboard_filters.html — панель бесшовных фильтров дашборда #}
+<div id="dashboardFilters" class="content__filters">
+    <div class="filters__group">
+        {% if current_user.role in ['classifier', 'admin'] %}
+        <div class="filters__item">
+            <div class="filters__dropdown">
+                <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
+                    class="filters__dropdown-button icon--16 icon__more--after button button--md button--outline">
+                    Все категории
+                </button>
+                <ul id="filterCategory" role="listbox" aria-label="Фильтр по категории" class="filters__dropdown-list">
+                </ul>
+
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="filters__item">
+            <div class="filters__dropdown">
+                <button type="button" id="filterExecutor-button" aria-haspopup="listbox" aria-expanded="false"
+                    class="filters__dropdown-button icon--16 icon__more--after button button--md button--outline">
+                    Все исполнители
+                </button>
+                <ul id="filterExecutor" role="listbox" aria-label="Фильтр по исполнителю"
+                    class="filters__dropdown-list"></ul>
+            </div>
+        </div>
+
+        <div class="filters__item dropdown-relative">
+            <input type="text" id="filterApplicant" autocomplete="off" placeholder="Поиск по заявителю"
+                class="search__input button button--md button--outline">
+            <div id="filterApplicantList" class="dropdown dropdown-ticket__person" style="display: none;">
+                <div class="dropdown-list"></div>
+            </div>
+        </div>
+
+        <div class="filters__item">
+            <input type="text" id="filterHostName" autocomplete="off" placeholder="Host Name"
+                class="search__input button button--md button--outline">
+        </div>
+
+        <button type="button" id="filterReset" class="button button--md button--outline">
+            Сбросить
+        </button>
+
+        {% if current_user.role in ['classifier', 'head'] %}
+        <div class="filters__item filters__export">
+            <input type="date" id="exportStart" class="button button--md button--outline" title="Период: с">
+            <input type="date" id="exportEnd" class="button button--md button--outline" title="Период: по">
+            <a id="exportExcel" href="{{ url_for('dashboards.export_report') }}"
+                class="button button--solid--primary button--md" title="Выгрузить заявки в Excel">
+                Выгрузить в Excel
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>

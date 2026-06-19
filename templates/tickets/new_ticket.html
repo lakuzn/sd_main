@@ -20,95 +20,92 @@
             </div>
 
             <div class="content__ticket-body">
-                <div class="filters__group">
-                    {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
-                    <label class="content__ticket-onbehalf" for="onBehalfToggle">
-                        <input type="checkbox" id="onBehalfToggle">
-                        Создать заявку от имени другого пользователя
-                    </label>
+                {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
+                <label class="content__ticket-onbehalf" for="onBehalfToggle">
+                    <input type="checkbox" id="onBehalfToggle">
+                    Создать заявку от имени другого пользователя
+                </label>
+                {% endif %}
+
+                {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
+                <input type="hidden" name="on_behalf_of" id="on_behalf_of">
+
+                <div id="onBehalfBlock" class="content__ticket-group" style="display: none;">
+                    <label class="ticket__group-label">Заявитель</label>
+
+                    <div class="dropdown-relative">
+                        <input type="text" id="applicantSearch" autocomplete="off"
+                            placeholder="Начните вводить ФИО заявителя..."
+                            class="search__input button button--md button--outline">
+
+                        <div id="applicantSearchList" class="dropdown dropdown-ticket__person" style="display: none;">
+                            <div class="dropdown-list"></div>
+                        </div>
+                    </div>
+
+                    <small class="ticket__group-description">
+                        Заявка будет зарегистрирована от имени выбранного пользователя.
+                    </small>
+                </div>
+                {% endif %}
+
+                <!-- Начало. Описание -->
+                <div class="content__ticket-group">
+                    <label for="description" class="ticket__group-label">Описание проблемы</label>
+
+                    {% if form.description.errors %}
+                    <ul class="ticket__input-error">
+                        {% for error in form.description.errors %}
+                        <li>{{error}}</li>
+                        {% endfor %}
+                    </ul>
                     {% endif %}
 
-                    {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
-                    <input type="hidden" name="on_behalf_of" id="on_behalf_of">
+                    <textarea id="description" name="description" rows="6" minlength="1" maxlength="2000" required
+                        aria-required="true" placeholder="Опишите вашу проблему подробно..."
+                        class="ticket__group-textarea button button--md button--outline"></textarea>
+                </div>
+                <!-- Конец. Описание -->
 
-                    <div id="onBehalfBlock" class="content__ticket-group" style="display: none;">
-                        <label class="ticket__group-label">Заявитель</label>
+                <!-- Начало. Host Name -->
+                <div class="content__ticket-group">
+                    <label for="host_name" class="ticket__group-label">Host Name компьютера</label>
 
-                        <div class="dropdown-relative">
-                            <input type="text" id="applicantSearch" autocomplete="off"
-                                placeholder="Начните вводить ФИО заявителя..."
-                                class="search__input button button--md button--outline">
+                    <input type="text" id="host_name" name="host_name" maxlength="255" autocomplete="off"
+                        value="{{ current_user.host_name or '' }}" placeholder="Например, PC-01234"
+                        class="ticket__group-textarea button button--md button--outline">
 
-                            <div id="applicantSearchList" class="dropdown dropdown-ticket__person"
-                                style="display: none;">
-                                <div class="dropdown-list"></div>
-                            </div>
-                        </div>
+                    <small class="ticket__group-description">
+                        Host name компьютера, с которым возникла проблема,
+                        поможет классификатору найти связанные заявки.
+                    </small>
+                </div>
+                <!-- Конец. Host Name -->
 
-                        <small class="ticket__group-description">
-                            Заявка будет зарегистрирована от имени выбранного пользователя.
-                        </small>
+                <!-- Начало. Дедлайн -->
+                <div class="content__ticket-group">
+                    <label for="desired_deadline" class="ticket__group-label">Желаемый срок решения</label>
+
+                    <input type="date" id="desired_deadline" name="desired_deadline"
+                        class="ticket__group-textarea button button--md button--outline">
+
+                    <small class="ticket__group-description">
+                        Необязательно. Поможет исполнителю понять срочность.
+                    </small>
+                </div>
+                <!-- Конец. Дедлайн -->
+
+                <div class="content__ticket-group">
+                    <label for="attachments" class="ticket__group-label">Вложения</label>
+
+                    <div id="dropzone" class="dropzone button">
+                        <p class="dropzone__text">перетащите или выберите файлы</p>
+
+                        <input type="file" multiple name="attachments" id="attachments" accept="*/*"
+                            class="dropzone__input">
                     </div>
-                    {% endif %}
 
-                    <!-- Начало. Описание -->
-                    <div class="content__ticket-group">
-                        <label for="description" class="ticket__group-label">Описание проблемы</label>
-
-                        {% if form.description.errors %}
-                        <ul class="ticket__input-error">
-                            {% for error in form.description.errors %}
-                            <li>{{error}}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
-
-                        <textarea id="description" name="description" rows="6" minlength="1" maxlength="2000" required
-                            aria-required="true" placeholder="Опишите вашу проблему подробно..."
-                            class="ticket__group-textarea button button--md button--outline"></textarea>
-                    </div>
-                    <!-- Конец. Описание -->
-
-                    <!-- Начало. Host Name -->
-                    <div class="content__ticket-group">
-                        <label for="host_name" class="ticket__group-label">Host Name компьютера</label>
-
-                        <input type="text" id="host_name" name="host_name" maxlength="255" autocomplete="off"
-                            value="{{ current_user.host_name or '' }}" placeholder="Например, PC-01234"
-                            class="ticket__group-textarea button button--md button--outline">
-
-                        <small class="ticket__group-description">
-                            Host name компьютера, с которым возникла проблема,
-                            поможет классификатору найти связанные заявки.
-                        </small>
-                    </div>
-                    <!-- Конец. Host Name -->
-
-                    <!-- Начало. Дедлайн -->
-                    <div class="content__ticket-group">
-                        <label for="desired_deadline" class="ticket__group-label">Желаемый срок решения</label>
-
-                        <input type="date" id="desired_deadline" name="desired_deadline"
-                            class="ticket__group-textarea button button--md button--outline">
-
-                        <small class="ticket__group-description">
-                            Необязательно. Поможет исполнителю понять срочность.
-                        </small>
-                    </div>
-                    <!-- Конец. Дедлайн -->
-
-                    <div class="content__ticket-group">
-                        <label for="attachments" class="ticket__group-label">Вложения</label>
-
-                        <div id="dropzone" class="dropzone button">
-                            <p class="dropzone__text">перетащите или выберите файлы</p>
-
-                            <input type="file" multiple name="attachments" id="attachments" accept="*/*"
-                                class="dropzone__input">
-                        </div>
-
-                        <ul id="ticketFiles" class="ticket__group-files" style="display: none;"></ul>
-                    </div>
+                    <ul id="ticketFiles" class="ticket__group-files" style="display: none;"></ul>
                 </div>
 
                 <button type="submit" class="content__ticket-button button button--md button--solid">

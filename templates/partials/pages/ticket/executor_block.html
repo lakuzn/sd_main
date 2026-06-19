@@ -4,7 +4,7 @@
     {% if current_user.role in ['head', 'admin', 'classifier'] and ticket.status != 'Решена' %}
 
     <div id="dropdownTicketExecutor"
-        class="ticket-executors ticket-executors--select icon--16 icon__more--after button button--outline button--sm">
+        class="ticket-executors ticket-executors--select icon--14 icon__more--after button button--outline button--sm">
         {% if ticket.executors %}
         {% for executor in ticket.executors %}
         <div class="ticket-person">

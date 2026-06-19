@@ -28,7 +28,7 @@
     <script>
         window.currentUserId = "{{ current_user.id }}";
         window.currentUserRole = "{{ current_user.role }}";
-        window.currentUserDepartmentId = {{ current_user.department_id or 'null' }};
+        window.currentUserDepartmentId = "{{ current_user.department_id or 'null' }}";
     </script>
     {% block script %}{% endblock %}
 </body>

@@ -4,7 +4,7 @@
 
     {% if current_user.role in ['head', 'admin', 'classifier'] and ticket.status != 'Решена' %}
     <div class="dropdown-relative">
-        <div id="dropdownTicketCategory" class="categories-select icon--16 icon__more--after button button--outline">
+        <div id="dropdownTicketCategory" class="categories-select icon--14 icon__more--after button button--outline">
             {% if ticket.categories %}
             {% for category in ticket.categories %}
             <div id="{{category.id}}" class="categories-item">
