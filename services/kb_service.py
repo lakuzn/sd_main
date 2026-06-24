@@ -6,9 +6,12 @@ from app.services.log_service import LogService
 class KBService:
 
     @staticmethod
-    def get_all_articles_grouped_by_category():
+    def get_all_articles_grouped_by_category(staff_only=True):
         """Возвращает статьи, сгрупированные по категориям"""
-        articles = KnowledgeArticle.query.order_by(KnowledgeArticle.title).all()
+        query = KnowledgeArticle.query
+        if not staff_only:
+            query = query.filter_by(is_staff_only=False)
+        articles = query.order_by(KnowledgeArticle.title).all()
 
         grouped = {}
         for article in articles:

@@ -14,6 +14,9 @@ class Attachment(db.Model):
     # Внешние ключи
     ticket_id = db.Column(db.Integer, db.ForeignKey("tickets.id"), nullable=False)
     message_id = db.Column(db.Integer, db.ForeignKey("messages.id"), nullable=True)
+    comment_id = db.Column(
+        db.Integer, db.ForeignKey("internal_comments.id"), nullable=True
+    )
     uploaded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     uploaded_at = db.Column(db.DateTime, default=datetime.now)
 

@@ -8,10 +8,28 @@ class User(db.Model, UserMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    # Почта может отсутствовать у доменной учётки — подставим логин@домен
+    email = db.Column(db.String(120), unique=True, nullable=True)
     phone = db.Column(db.String(20), nullable=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    # Доменные (AD) пользователи входят по Kerberos и локального пароля не имеют
+    password_hash = db.Column(db.String(255), nullable=True)
     position = db.Column(db.String(100), nullable=True)
+
+    # === Active Directory ===
+    # Логин из AD (sAMAccountName), по нему сопоставляется вход через Kerberos.
+    username = db.Column(db.String(150), unique=True, nullable=True, index=True)
+    # Стабильный идентификатор учётки в AD (objectGUID) — не меняется
+    # при переименовании/переносе пользователя; ключ для синхронизации.
+    ad_guid = db.Column(db.String(64), unique=True, nullable=True)
+    # Активна ли учётная запись (отключённые в AD помечаем неактивными,
+    # но НЕ удаляем, чтобы не потерять связи с заявками).
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    # Когда запись последний раз обновлялась из AD
+    last_sync_at = db.Column(db.DateTime, nullable=True)
+
+    # Host name рабочего компьютера пользователя (необязательно).
+    # Используется для предзаполнения поля при создании заявки.
+    host_name = db.Column(db.String(255), nullable=True)
 
     # РОЛИ: 'user', 'classifier', 'head', 'executor', 'admin'
     role = db.Column(db.String(20), default="user", nullable=False)

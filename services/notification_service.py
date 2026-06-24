@@ -23,6 +23,16 @@ class NotificationService:
         return notification
 
     @staticmethod
+    def notify_many(user_ids, message, ticket_id=None):
+        """Шлёт одно и то же уведомление нескольким пользователям.
+
+        Принимает любой перебираемый набор id (список/множество), отбрасывает
+        пустые значения и дубли — чтобы один человек не получил уведомление дважды.
+        """
+        for uid in {u for u in user_ids if u}:
+            NotificationService.create_notification(uid, message, ticket_id)
+
+    @staticmethod
     def get_unread_for_user(user_id):
         """Получает все непрочитанные уведомления пользователя"""
         return (

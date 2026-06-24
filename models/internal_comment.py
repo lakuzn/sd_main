@@ -17,3 +17,11 @@ class InternalComment(db.Model):
     # Связи
     ticket = db.relationship("Ticket", back_populates="internal_comments")
     author = db.relationship("User", foreign_keys=[author_id])
+    attachments = db.relationship(
+        "Attachment",
+        backref="comment",
+        cascade="all, delete-orphan",
+        # selectin вместо dynamic — батч-загрузка вложений всех комментариев одним
+        # запросом вместо N+1 (см. пояснение в models/message.py).
+        lazy="selectin",
+    )

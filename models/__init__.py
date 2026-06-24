@@ -10,6 +10,7 @@ from .knowledge_article import KnowledgeArticle
 from .department import Department
 from .internal_comment import InternalComment
 from .notification import Notification
+from .ticket_view import TicketView
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "Department",
     "InternalComment",
     "Notification",
+    "TicketView",
 ]

@@ -66,7 +66,7 @@ def seed():
         user4 = User(
             full_name="Корсаков Петр Александрович",
             email="head4@example.com",
-            position="Начальник отдела 943",
+            position="Начальник отдела 942",
             role="head",
             department_id=dep_942.id,
         )

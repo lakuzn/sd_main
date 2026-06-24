@@ -1,7 +1,67 @@
-from app.models import Ticket, User
-from sqlalchemy import func, or_, and_
-from app.extensions import db
+from app.models import Ticket, User, Department, Category
+from sqlalchemy import func, or_, and_, case
 from datetime import datetime
+
+
+def _active_scope_query(user):
+    """Базовый запрос активных (не решённых) заявок для дашборда роли.
+
+    Возвращает незавершённый Query без сортировки — единый источник правды
+    о том, какие заявки видит роль на своём дашборде. Используется и для
+    обычной выдачи, и для серверной фильтрации.
+    """
+    query = Ticket.query.filter(
+        Ticket.status != "Решена",
+        Ticket.is_deleted == False,
+    )
+
+    role = user.role
+    if role == "classifier":
+        query = query.filter(
+            or_(
+                Ticket.departments.any(id=user.department_id),
+                ~Ticket.departments.any(),
+                Ticket.executors.any(id=user.id),
+            )
+        )
+    elif role in ("executor", "head"):
+        query = query.filter(
+            or_(
+                Ticket.departments.any(id=user.department_id),
+                Ticket.executors.any(id=user.id),
+            )
+        )
+    elif role == "admin":
+        pass  # администратор видит все активные заявки
+    else:  # обычный пользователь
+        query = query.filter(
+            or_(
+                Ticket.applicant_id == user.id,
+                Ticket.executors.any(id=user.id),
+            )
+        )
+    return query
+
+
+def _overdue_first():
+    """Выражение для сортировки: просроченные активные заявки идут первыми."""
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+    return case(
+        (
+            and_(
+                Ticket.status != "Решена",
+                Ticket.desired_deadline.isnot(None),
+                Ticket.desired_deadline < today_start,
+            ),
+            0,
+        ),
+        else_=1,
+    )
+
+
+def _review_first():
+    """Выражение для сортировки: заявки, требующие проверки заявителем, закрепляются вверху."""
+    return case((Ticket.status == "Требует проверки", 0), else_=1)
 
 
 class DashboardService:
@@ -10,101 +70,297 @@ class DashboardService:
     def get_user_data(user_id, page=1, per_page=18):
         """Дашборд пользователя"""
 
-        # Заявки, где человек либо автор, либо назначен исполнителем (и она не решена)
+        # Активные заявки, где человек является заявителем, а для сотрудников —
+        # ещё и заявки, где он назначен исполнителем.
+        # Заявки «Требует проверки» закрепляются вверху — их нужно проверить заявителю.
         pagination = (
             Ticket.query.filter(
-                (Ticket.applicant_id == user_id),
+                or_(
+                    Ticket.applicant_id == user_id,
+                    Ticket.executors.any(id=user_id),
+                ),
                 Ticket.status != "Решена",
+                Ticket.is_deleted == False,
             )
-            .order_by(Ticket.updated_at.desc())
+            .order_by(_review_first(), _overdue_first(), Ticket.updated_at.desc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
+
+        from app.services.ticket_service import TicketService
 
         return {
             "tickets": pagination.items,
             "pagination": pagination,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                pagination.items, user_id
+            ),
         }
 
     @staticmethod
     def get_executor_data(user_id):
         """Дашборд агента"""
 
-        # Ищем заявки, где текущий пользователь есть в списке исполнителей (executors)
-        # и статус которых не закрыт.
+        # Заявки своего отдела + назначенные лично (см. _active_scope_query)
         user = User.query.get(user_id)
         tickets = (
-            Ticket.query.filter(
-                or_(
-                    and_(
-                        Ticket.executors.any(id=user_id),
-                        Ticket.status.in_(["В работе", "Ожидает ответа"]),
-                    ),
-                    and_(
-                        Ticket.departments.any(id=user.department_id),
-                        Ticket.executors.any(),
-                        Ticket.status != "Решена",
-                    ),
-                )
-            )
-            .order_by(Ticket.updated_at.desc())
+            _active_scope_query(user)
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .all()
         )
 
+        from app.services.ticket_service import TicketService
+
         return {
             "tickets": tickets,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(tickets, user_id),
+        }
+
+    @staticmethod
+    def get_head_data(user_id):
+        """Дашборд начальника отдела: все активные заявки в его отделе + лично на нём"""
+        user = User.query.get(user_id)
+
+        tickets = (
+            _active_scope_query(user)
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
+            .all()
+        )
+
+        from app.services.ticket_service import TicketService
+
+        return {
+            "tickets": tickets,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(tickets, user_id),
         }
 
     @staticmethod
     def get_classifier_data(user_id, page=1, per_page=18):
-        """Дашборд классификатора"""
+        """Дашборд классификатора (первая линия ТП).
+
+        Видит все активные заявки своего отдела (для контроля и переклассификации),
+        а также новые, ещё не распределённые ни в один отдел — их нужно классифицировать.
+        """
+        user = User.query.get(user_id)
 
         pagination = (
-            Ticket.query.filter(
-                or_(
-                    Ticket.status.in_(["Новая", "В обработке"]),
-                    Ticket.executors.any(id=user_id),
-                )
-            )
-            .order_by(Ticket.updated_at.desc())
+            _active_scope_query(user)
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
             .paginate(page=page, per_page=per_page, error_out=False)
         )
 
-        return {"tickets": pagination.items, "pagination": pagination}
+        from app.services.ticket_service import TicketService
 
-    @staticmethod
-    def get_archive_data(user_id, user_role):
-        """Дашборд архивных заявок"""
-
-        context = {
-            "executor_tasks_solved": [],
-            "tickets": [],
+        return {
+            "tickets": pagination.items,
+            "pagination": pagination,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(
+                pagination.items, user_id
+            ),
         }
 
-        if user_role == "executor":
-            context["tickets"] = (
-                Ticket.query.filter(
-                    Ticket.applicant_id == user_id, Ticket.status == "Решена"
+    @staticmethod
+    def get_admin_data():
+        """Дашборд администратора: все активные заявки в системе."""
+        tickets = (
+            Ticket.query.filter(
+                Ticket.status != "Решена",
+                Ticket.is_deleted == False,
+            )
+            .order_by(_overdue_first(), Ticket.updated_at.desc())
+            .all()
+        )
+
+        today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+        overdue_count = sum(
+            1
+            for t in tickets
+            if t.desired_deadline and t.desired_deadline < today_start
+        )
+
+        return {
+            "tickets": tickets,
+            "overdue_count": overdue_count,
+        }
+
+    @staticmethod
+    def get_filtered_tickets(
+        user,
+        category_id=None,
+        executor_id=None,
+        applicant_id=None,
+        host_name=None,
+    ):
+        """Серверная фильтрация активного дашборда роли (для бесшовных фильтров)."""
+        query = _active_scope_query(user)
+
+        if category_id:
+            query = query.filter(Ticket.categories.any(id=category_id))
+        if executor_id:
+            query = query.filter(Ticket.executors.any(id=executor_id))
+        if applicant_id:
+            query = query.filter(Ticket.applicant_id == applicant_id)
+        if host_name:
+            query = query.filter(Ticket.host_name.ilike(f"%{host_name}%"))
+
+        tickets = query.order_by(
+            _review_first(), _overdue_first(), Ticket.updated_at.desc()
+        ).all()
+
+        from app.services.ticket_service import TicketService
+
+        return {
+            "tickets": tickets,
+            "unread_ticket_ids": TicketService.get_unread_ticket_ids(tickets, user.id),
+        }
+
+    @staticmethod
+    def get_filter_options(user):
+        """Опции для фильтров дашборда (категории и исполнители) с учётом роли."""
+        categories = []
+        executors = []
+
+        if user.role in ("classifier", "admin"):
+            categories = Category.query.order_by(Category.name).all()
+            executors = (
+                User.query.filter(User.role.in_(["classifier", "executor", "head"]))
+                .order_by(User.full_name)
+                .all()
+            )
+        elif user.role in ("executor", "head"):
+            executors = (
+                User.query.filter(
+                    User.role.in_(["executor", "head"]),
+                    User.department_id == user.department_id,
                 )
-                .order_by(Ticket.updated_at.desc())
+                .order_by(User.full_name)
                 .all()
             )
 
-            # 2. Заявки, которые он чинил (выполнял) как сотрудник
-            context["executor_tasks_solved"] = (
-                Ticket.query.filter(
-                    Ticket.executors.any(id=user_id), Ticket.status == "Решена"
-                )
-                .order_by(Ticket.updated_at.desc())
-                .all()
+        return {
+            "categories": [{"id": c.id, "name": c.name} for c in categories],
+            "executors": [
+                {
+                    "id": u.id,
+                    "name": u.full_name,
+                    "position": u.position or "Сотрудник",
+                    "department": u.department.name if u.department else "Без отдела",
+                    "phone": u.phone or "Не указан",
+                    "email": u.email or "Не указан",
+                }
+                for u in executors
+            ],
+        }
+
+    @staticmethod
+    def export_report(user, start_date=None, end_date=None):
+        """Формирует Excel-отчёт по заявкам за период.
+
+        Классификатор/админ выгружают все заявки, начальник — заявки своего отдела.
+        Возвращает BytesIO с .xlsx.
+        """
+        from io import BytesIO
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        query = Ticket.query.filter(Ticket.is_deleted == False)
+
+        # Начальник отдела ограничен своим отделом
+        if user.role == "head":
+            query = query.filter(Ticket.departments.any(id=user.department_id))
+
+        if start_date:
+            query = query.filter(Ticket.created_at >= start_date)
+        if end_date:
+            query = query.filter(Ticket.created_at < end_date)
+
+        tickets = query.order_by(Ticket.created_at.asc()).all()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Заявки"
+
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill("solid", fgColor="1A65E0")
+
+        headers = [
+            "№",
+            "Заявитель",
+            "Исполнители",
+            "Host Name",
+            "Категория",
+            "Статус",
+            "Решена",
+            "Примечание",
+        ]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        for t in tickets:
+            ws.append(
+                [
+                    t.id,
+                    t.applicant.full_name if t.applicant else "",
+                    ", ".join(e.full_name for e in t.executors),
+                    t.host_name or "",
+                    ", ".join(c.name for c in t.categories) or "Без категории",
+                    t.status,
+                    "Да" if t.status == "Решена" else "Нет",
+                    "",  # Примечание — заполняется вручную
+                ]
             )
 
-        else:  # Ищем только закрытые заявки
-            context["tickets"] = (
-                Ticket.query.filter(
-                    Ticket.applicant_id == user_id, Ticket.status == "Решена"
-                )
-                .order_by(Ticket.updated_at.desc())
-                .all()
-            )
+        # Автоширина колонок
+        widths = [6, 26, 30, 18, 26, 16, 8, 30]
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
-        return context
+        # === Итоговая статистика ===
+        resolved = [t for t in tickets if t.status == "Решена"]
+        unresolved = [t for t in tickets if t.status != "Решена"]
+
+        bold = Font(bold=True)
+
+        ws.append([])
+        row = ws.max_row + 1
+        ws.cell(row=row, column=1, value="ИТОГО").font = bold
+        ws.append(["Всего заявок", len(tickets)])
+        ws.append(["Решено", len(resolved)])
+        ws.append(["Не решено", len(unresolved)])
+
+        # По категориям
+        ws.append([])
+        ws.cell(row=ws.max_row + 1, column=1, value="Заявок по категориям").font = bold
+        cat_counts = {}
+        for t in tickets:
+            if t.categories:
+                for c in t.categories:
+                    cat_counts[c.name] = cat_counts.get(c.name, 0) + 1
+            else:
+                cat_counts["Без категории"] = cat_counts.get("Без категории", 0) + 1
+        for name, cnt in sorted(cat_counts.items()):
+            ws.append([name, cnt])
+
+        # По исполнителям (решено / не решено)
+        ws.append([])
+        ws.cell(
+            row=ws.max_row + 1, column=1, value="По исполнителям (решено / не решено)"
+        ).font = bold
+        ws.append(["Исполнитель", "Решено", "Не решено"])
+        exec_stats = {}
+        for t in tickets:
+            for e in t.executors:
+                stat = exec_stats.setdefault(e.full_name, {"resolved": 0, "open": 0})
+                if t.status == "Решена":
+                    stat["resolved"] += 1
+                else:
+                    stat["open"] += 1
+        for name, stat in sorted(exec_stats.items()):
+            ws.append([name, stat["resolved"], stat["open"]])
+
+        stream = BytesIO()
+        wb.save(stream)
+        stream.seek(0)
+        return stream
