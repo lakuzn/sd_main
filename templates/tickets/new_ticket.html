@@ -15,53 +15,97 @@
             enctype="multipart/form-data" class="content__ticket">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            <h2 class="h2 content__ticket-header">Новая заявка</h2>
+            <div class="content__ticket-heading">
+                <h2 class="h2 content__ticket-header">Новая заявка</h2>
+            </div>
 
             <div class="content__ticket-body">
-                <div class="filters__group">
-                    <!-- Начало. Описание -->
-                    <div class="content__ticket-group">
-                        <label for="description" class="ticket__group-label">Описание проблемы</label>
+                {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
+                <label class="content__ticket-onbehalf" for="onBehalfToggle">
+                    <input type="checkbox" id="onBehalfToggle">
+                    Создать заявку от имени другого пользователя
+                </label>
+                {% endif %}
 
-                        {% if form.description.errors %}
-                        <ul class="ticket__input-error">
-                            {% for error in form.description.errors %}
-                            <li>{{error}}</li>
-                            {% endfor %}
-                        </ul>
-                        {% endif %}
+                {% if current_user.role in ['classifier', 'executor', 'head', 'admin'] %}
+                <input type="hidden" name="on_behalf_of" id="on_behalf_of">
 
-                        <textarea id="description" name="description" rows="6" minlength="1" maxlength="2000" required
-                            aria-required="true" placeholder="Опишите вашу проблему подробно..."
-                            class="ticket__group-textarea button button--md button--outline"></textarea>
-                    </div>
-                    <!-- Конец. Описание -->
+                <div id="onBehalfBlock" class="content__ticket-group" style="display: none;">
+                    <label class="ticket__group-label">Заявитель</label>
 
-                    <!-- Начало. Дедлайн -->
-                    <div class="content__ticket-group">
-                        <label for="desired_deadline" class="ticket__group-label">Желаемый срок решения</label>
+                    <div class="dropdown-relative">
+                        <input type="text" id="applicantSearch" autocomplete="off"
+                            placeholder="Начните вводить ФИО заявителя..."
+                            class="search__input button button--md button--outline">
 
-                        <input type="date" id="desired_deadline" name="desired_deadline"
-                            class="ticket__group-textarea button button--md button--outline">
-
-                        <small class="ticket__group-description">
-                            Необязательно. Поможет исполнителю понять срочность.
-                        </small>
-                    </div>
-                    <!-- Конец. Дедлайн -->
-
-                    <div class="content__ticket-group">
-                        <label for="attachments" class="ticket__group-label">Вложения</label>
-
-                        <div id="dropzone" class="dropzone button">
-                            <p class="dropzone__text">перетащите или выберите файлы</p>
-
-                            <input type="file" multiple name="attachments" id="attachments" accept="*/*"
-                                class="dropzone__input">
+                        <div id="applicantSearchList" class="dropdown dropdown-ticket__person" style="display: none;">
+                            <div class="dropdown-list"></div>
                         </div>
-
-                        <ul id="ticketFiles" class="ticket__group-files" style="display: none;"></ul>
                     </div>
+
+                    <small class="ticket__group-description">
+                        Заявка будет зарегистрирована от имени выбранного пользователя.
+                    </small>
+                </div>
+                {% endif %}
+
+                <!-- Начало. Описание -->
+                <div class="content__ticket-group">
+                    <label for="description" class="ticket__group-label">Описание проблемы</label>
+
+                    {% if form.description.errors %}
+                    <ul class="ticket__input-error">
+                        {% for error in form.description.errors %}
+                        <li>{{error}}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    <textarea id="description" name="description" rows="6" minlength="1" maxlength="2000" required
+                        aria-required="true" placeholder="Опишите вашу проблему подробно..."
+                        class="ticket__group-textarea button button--md button--outline"></textarea>
+                </div>
+                <!-- Конец. Описание -->
+
+                <!-- Начало. Host Name -->
+                <div class="content__ticket-group">
+                    <label for="host_name" class="ticket__group-label">Host Name компьютера</label>
+
+                    <input type="text" id="host_name" name="host_name" maxlength="255" autocomplete="off"
+                        value="{{ current_user.host_name or '' }}" placeholder="Например, PC-01234"
+                        class="ticket__group-textarea button button--md button--outline">
+
+                    <small class="ticket__group-description">
+                        Host name компьютера, с которым возникла проблема,
+                        поможет классификатору найти связанные заявки.
+                    </small>
+                </div>
+                <!-- Конец. Host Name -->
+
+                <!-- Начало. Дедлайн -->
+                <div class="content__ticket-group">
+                    <label for="desired_deadline" class="ticket__group-label">Желаемый срок решения</label>
+
+                    <input type="date" id="desired_deadline" name="desired_deadline"
+                        class="ticket__group-textarea button button--md button--outline">
+
+                    <small class="ticket__group-description">
+                        Необязательно. Поможет исполнителю понять срочность.
+                    </small>
+                </div>
+                <!-- Конец. Дедлайн -->
+
+                <div class="content__ticket-group">
+                    <label for="attachments" class="ticket__group-label">Вложения</label>
+
+                    <div id="dropzone" class="dropzone button">
+                        <p class="dropzone__text">перетащите или выберите файлы</p>
+
+                        <input type="file" multiple name="attachments" id="attachments" accept="*/*"
+                            class="dropzone__input">
+                    </div>
+
+                    <ul id="ticketFiles" class="ticket__group-files" style="display: none;"></ul>
                 </div>
 
                 <button type="submit" class="content__ticket-button button button--md button--solid">
@@ -70,4 +114,99 @@
         </form>
     </div>
 </section>
+{% endblock %}
+
+{% block script %}
+<script>
+    // Дата: запрещаем выбирать прошедшую дату и по умолчанию подставляем сегодня
+    (function () {
+        var deadlineInput = document.getElementById('desired_deadline');
+        if (deadlineInput) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            var todayStr = yyyy + '-' + mm + '-' + dd;
+            deadlineInput.min = todayStr;
+            // Автоматически проставляем сегодняшнюю дату (если поле ещё пустое)
+            if (!deadlineInput.value) {
+                deadlineInput.value = todayStr;
+            }
+        }
+    })();
+
+    // Создание заявки от имени другого пользователя (классификатор / начальник)
+    (function () {
+        var toggle = document.getElementById('onBehalfToggle');
+        var block = document.getElementById('onBehalfBlock');
+        var hidden = document.getElementById('on_behalf_of');
+        var search = document.getElementById('applicantSearch');
+        var listWrap = document.getElementById('applicantSearchList');
+        if (!toggle || !block || !hidden || !search || !listWrap) return;
+
+        var list = listWrap.querySelector('.dropdown-list');
+
+        toggle.addEventListener('change', function () {
+            block.style.display = toggle.checked ? 'block' : 'none';
+            if (!toggle.checked) {
+                hidden.value = '';
+                search.value = '';
+                list.innerHTML = '';
+                listWrap.style.display = 'none';
+            }
+        });
+
+        function renderUsers(users) {
+            list.innerHTML = '';
+            if (!users.length) {
+                list.innerHTML = '<p class="dropdown-header__subtitle">Ничего не найдено</p>';
+                listWrap.style.display = 'flex';
+                return;
+            }
+
+            users.forEach(function (u) {
+                var item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.innerHTML =
+                    '<div class="ticket-person button">' +
+                    '<div class="ticket-person__info">' +
+                    '<p class="ticket-person__label">' + u.full_name + '</p>' +
+                    '<p class="ticket-person__post">' + u.position + '</p>' +
+                    '<p class="ticket-person__department icon--16 icon__department--before">' + u.department + '</p>' +
+                    '<p class="ticket-person__email icon--16 icon__email--before">' + u.email + '</p>' +
+                    '</div></div>';
+
+                item.addEventListener('click', function () {
+                    hidden.value = u.id;
+                    search.value = u.full_name;
+                    listWrap.style.display = 'none';
+                });
+
+                list.appendChild(item);
+            });
+
+            listWrap.style.display = 'flex';
+        }
+
+        var timer = null;
+        search.addEventListener('input', function () {
+            // При ручном изменении сбрасываем ранее выбранного пользователя
+            hidden.value = '';
+
+            clearTimeout(timer);
+            var term = search.value.trim();
+            timer = setTimeout(function () {
+                fetch('/api/users/search?q=' + encodeURIComponent(term))
+                    .then(function (r) { return r.json(); })
+                    .then(renderUsers)
+                    .catch(function () { });
+            }, 200);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!listWrap.contains(e.target) && e.target !== search)
+                listWrap.style.display = 'none';
+        });
+    })();
+</script>
 {% endblock %}

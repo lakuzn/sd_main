@@ -1,0 +1,69 @@
+{# partials/pages/dashboard/filters.html #}
+{% from "macros/initials.html" import get_initials %}
+
+<div id="dashboardFilters" class="content__filters">
+    {% if current_user.role in ['classifier', 'admin'] %}
+    <div class="filters__item">
+        <div class="filters__dropdown dropdown-relative">
+            <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
+                class="filters__dropdown-button icon--14 icon__more--after button button--sm button--outline">
+                Все категории
+            </button>
+            <ul id="filterCategory" role="listbox" aria-label="Фильтр по категории"
+                class="dropdown filters__dropdown-list dropdown-categories" style="display: none;">
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Фильтр по исполнителям (как в ticket/executor_block.html) -->
+    <div class="filters__item">
+        <div class="filters__dropdown dropdown-relative">
+            <button type="button" id="filterExecutor-button" aria-haspopup="listbox" aria-expanded="false"
+                class="filters__dropdown-button icon--14 icon__more--after button button--sm button--outline">
+                Все исполнители
+            </button>
+
+            <div id="filterExecutor" class="dropdown dropdown-ticket__person" style="display: none;">
+                <div class="dropdown-header">
+                    <p class="dropdown-header__title">Исполнители</p>
+                    <input type="text" id="executorSearchInFilter" class="search__input"
+                        placeholder="Начните вводить..." value="">
+                </div>
+                <div class="dropdown-list">
+                    <!-- Список будет заполняться через JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтр по заявителям -->
+    <div class="filters__item">
+        <div class="filters__dropdown dropdown-relative">
+            <button type="button" id="filterApplicant" aria-haspopup="listbox" aria-expanded="false"
+                class="filters__dropdown-button icon--14 icon__more--after button button--sm button--outline">
+                Все заявители
+            </button>
+
+            <div id="filterApplicantList" class="dropdown dropdown-ticket__person" style="display: none;">
+                <div class="dropdown-header">
+                    <p class="dropdown-header__title">Заявители</p>
+                    <input type="text" id="applicantSearchInFilter" class="search__input"
+                        placeholder="Начните вводить..." value="">
+                </div>
+                <div class="dropdown-list">
+                    <!-- Список заявителей будет заполняться через JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="filters__item">
+        <input type="text" id="filterHostName" autocomplete="off" placeholder="Host Name"
+            class="search__input button button--sm button--outline">
+    </div>
+
+    <button type="button" id="filterReset" class="button button--sm button--outline" style="display: none;">
+        Сбросить
+    </button>
+</div>

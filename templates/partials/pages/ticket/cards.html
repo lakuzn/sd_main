@@ -1,0 +1,8 @@
+{# partials/pages/ticket/cards.html — список карточек для бесшовной фильтрации #}
+{% for ticket in tickets %}
+{% if card_unclassified %}
+{% include "partials/pages/ticket/card_unclassified.html" %}
+{% else %}
+{% include "partials/pages/ticket/card.html" %}
+{% endif %}
+{% endfor %}

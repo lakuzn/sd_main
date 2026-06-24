@@ -12,26 +12,26 @@
 
         {% if grouped_articles %}
         <div id="filtersFaq" class="content__filters">
-            <div class="filters__group">
-                <!-- Начало. Категории -->
-                <div class="filters__item">
-                    <div class="filters__dropdown">
-                        <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
-                            class="filters__dropdown-button button button--md button--outline">
-                            Все категории
-                        </button>
+            <!-- Начало. Категории -->
+            <div class="filters__item">
+                <div class="filters__dropdown dropdown-relative">
+                    <button type="button" id="filterCategory-button" aria-haspopup="listbox" aria-expanded="false"
+                        class="filters__dropdown-button icon--14 icon__more--after button button--sm button--outline">
+                        Все категории
+                    </button>
 
-                        <ul id="filterCategory" role="listbox" aria-label="Список категорий"
-                            class="filters__dropdown-list">
-                        </ul>
-                    </div>
+                    <ul id="filterCategory" role="listbox" aria-label="Список категорий"
+                        class="filters__dropdown-list dropdown-categories">
+                    </ul>
                 </div>
-                <!-- Конец. Категории -->
-                <a href="{{ url_for('kb.create_article') }}"
-                    class="button button--solid--primary button--md noresults__button">
-                    Создать статью
-                </a>
             </div>
+            <!-- Конец. Категории -->
+            {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
+            <a href="{{ url_for('kb.create_article') }}"
+                class="button button--solid--primary button--sm noresults__button">
+                Создать статью
+            </a>
+            {% endif %}
         </div>
 
         <div class="content__wrap">
@@ -39,7 +39,6 @@
                 {% for category_name, articles_in_cat in grouped_articles.items() %}
                 <div class="faqs-group">
                     <h2 class="faqs-group__category h2">{{ category_name }}</h2>
-
                     <div class="faqs-group__list">
                         {% for article in articles_in_cat %}
                         <a href="{{url_for('kb.article', id=article.id)}}" class="faqs-group__item">
@@ -62,10 +61,12 @@
                 Статей не найдено
             </p>
 
+            {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
             <a href="{{ url_for('kb.create_article') }}"
                 class="button button--solid--primary button--md noresults__button">
                 Создать статью
             </a>
+            {% endif %}
         </div>
 
         {% endif %}

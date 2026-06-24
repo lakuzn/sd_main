@@ -1,0 +1,30 @@
+{# partials/pages/ticket/departments_block.html #}
+<div class="ticket-departments">
+    <p class="ticket-departments__label">Отделы:</p>
+
+    <div class="dropdown-relative">
+        <div id="dropdownTicketDept" class="departments-select icon--14 icon__more--after button button--outline">
+            {% if ticket.departments %}
+            {% for dept in ticket.departments %}
+            <div id="{{dept.id}}" class="departments-item">
+                <p class="departments-item__label">{{ dept.name }}</p>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="departments-item">
+                <p class="departments-item__label">Не указаны</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="dropdownTicketDeptList" class="dropdown dropdown-ticket__person" style="display: none;">
+            <div class="dropdown-header">
+                <div class="dropdown-description">
+                    <p class="dropdown-header__title">Отделы</p>
+                    <p class="dropdown-header__subtitle">Можно выбрать несколько</p>
+                </div>
+                <input type="text" id="deptSearch" class="search__input" placeholder="Начните вводить..." value="">
+            </div>
+        </div>
+    </div>
+</div>

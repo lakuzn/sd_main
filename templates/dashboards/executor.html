@@ -5,15 +5,17 @@
 <section id="dashboard" class="section" aria-labelledby="executor">
     <div class="section__content">
         <div class="content__info">
-            <h1 id="classiexecutorfier" class="h1">Мои задачи на исполнение</h1>
+            <h1 id="classiexecutorfier" class="h1">Очередь заявок</h1>
             <p class="content__description">Количество заявок: {{ tickets|length }}</p>
         </div>
+
+        {% include "partials/pages/dashboard/filters.html" %}
 
         {% if tickets %}
         <div class="content__wrap">
             <ul class="content__cards">
                 {% for ticket in tickets %}
-                {% include "partials/pages/ticket/card_unclassified.html" %}
+                {% include "partials/pages/ticket/card.html" %}
                 {% endfor %}
             </ul>
         </div>

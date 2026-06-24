@@ -1,0 +1,27 @@
+{# partials/pages/ticket/time_block.html #}
+<time datetime="{{ ticket.created_at.strftime('%Y-%m-%dT%H:%M:%S') }}" class="ticket__created">
+    от {{ ticket.created_at.strftime('%d.%m.%Y %H:%M') }}
+</time>
+
+{% if (current_user.role in ['head', 'admin' ] or (current_user.role=='classifier' and ticket.status in ['Новая', 'В
+обработке' ])) %}
+<div class="ticket-deadline">
+    <span class="ticket-deadline__label">до</span>
+
+    <input type="date" name="ticketTime" id="ticketTime" value="{{ ticket.desired_deadline.strftime('%Y-%m-%d') }}"
+        class="ticket-deadline__button button button--outline">
+</div>
+
+{% else %}
+<time datetime="{{ ticket.desired_deadline.strftime('%Y-%m-%dT%H:%M:%S') }}" class="ticket__created">
+    до {{ ticket.desired_deadline.strftime('%d.%m.%Y') }}
+</time>
+{% endif %}
+
+{#
+{% if ticket.actual_deadline and current_user.role != 'user' %}
+<time datetime="{{ ticket.actual_deadline.strftime('%Y-%m-%dT%H:%M:%S') }}" class="ticket-deadline__label button"
+    title="Внутренний срок отдела">Внутр: до {{ticket.actual_deadline.strftime('%Y-%m-%dT%H:%M:%S')}}
+</time>
+{% endif %}
+#}

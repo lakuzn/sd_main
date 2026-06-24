@@ -18,6 +18,7 @@
 
             <form method="POST" action="{{ url_for('auth.login') }}" class="form-login">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="next" value="{{ next or '' }}">
                 <h1 id="login" class="h1">Вход в систему</h1>
 
                 <div class="form-login__item">
@@ -34,6 +35,13 @@
 
                 <button type="submit" class="form-login__button button button--solid--primary button--md">Войти</button>
             </form>
+
+            {# Доменный вход (Kerberos / доменный логин+пароль). Ведёт на /auth/sso,
+            где Apache выполняет доменную аутентификацию. #}
+            <a href="{{ url_for('auth.sso', next=next) }}" class="form-login__button button button--md"
+                style="display:block;text-align:center;margin-top:12px;">
+                Войти по доменной учётной записи
+            </a>
         </div>
     </section>
 

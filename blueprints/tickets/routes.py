@@ -1,10 +1,13 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from app.blueprints.tickets import tickets_bp
 from app.forms.ticket_forms import *
+from app.models import User
 from app.services.ticket_service import TicketService
 from app.utils.decorators import role_required
 from app.utils.forms import flash_form_errors
+from app.utils.network import resolve_hostname, get_client_ip
+from datetime import date, datetime
 
 
 # Создание новой заявки
@@ -13,30 +16,68 @@ from app.utils.forms import flash_form_errors
 def new_ticket():
     form = TicketForm()
 
+    if request.method == "GET":
+        # Определяем hostname по IP и обновляем пользователя
+        TicketService.update_user_hostname(current_user)
+
     if form.validate_on_submit():
-        TicketService.create_ticket(
-            applicant_id=current_user.id,
-            description=form.description.data.strip(),
-            attachments=request.files.getlist("attachments"),
-            desired_deadline=form.desired_deadline.data,
+        # Валидация даты через сервис
+        is_valid, error = TicketService.validate_ticket_data(form.desired_deadline.data)
+        if not is_valid:
+            flash(error, "warning")
+            return render_template("tickets/new_ticket.html", form=form)
+
+        # Определение заявителя (с учётом "от имени")
+        on_behalf_of = request.form.get("on_behalf_of", type=int)
+        applicant_id, error = TicketService.determine_applicant(
+            current_user, on_behalf_of
         )
+        if error:
+            flash(error, "warning")
+            return render_template("tickets/new_ticket.html", form=form)
 
-        flash("Заявка успешно создана.", "success")
-        return redirect(url_for("dashboards.user"))
+        # Создание заявки
+        try:
+            TicketService.create_ticket(
+                applicant_id=applicant_id,
+                description=form.description.data.strip(),
+                attachments=request.files.getlist("attachments"),
+                desired_deadline=form.desired_deadline.data,
+                host_name=(request.form.get("host_name") or "").strip(),
+            )
+            flash("Заявка успешно создана.", "success")
+            return redirect(url_for("dashboards.user"))
 
-    return render_template(
-        "tickets/new_ticket.html",
-        form=form,
-    )
+        except ValueError as e:
+            flash(str(e), "warning")
+            return render_template("tickets/new_ticket.html", form=form)
+        except Exception as e:
+            flash("Произошла ошибка при создании заявки. Попробуйте позже.", "danger")
+            return render_template("tickets/new_ticket.html", form=form)
+
+    return render_template("tickets/new_ticket.html", form=form)
 
 
 # Просмотр конкретной заявки
 @tickets_bp.route("/<int:ticket_id>", methods=["GET"])
 @login_required
 def view_ticket(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+
+    # Скрытые (удалённые) заявки видит только admin
+    if ticket.is_deleted and current_user.role != "admin":
+        abort(404)
+
+    # Проверка прав доступа к заявке
+    if not TicketService.can_access_ticket(ticket, current_user):
+        abort(403)
+
+    # Запоминаем, что пользователь открыл заявку (гасим индикатор новых сообщений)
+    TicketService.mark_ticket_viewed(ticket_id, current_user.id)
+
     form = None
 
-    if current_user.role in ["classifier", "admin"]:
+    if current_user.role in ["classifier", "admin", "head"]:
         form = RouteTicketForm()
         TicketService.setup_route_form(form)
 
@@ -57,8 +98,14 @@ def view_ticket(ticket_id):
 # Маршрутизация заявки (Классификатор)
 @tickets_bp.route("/ticket/<int:ticket_id>/route", methods=["POST"])
 @login_required
-@role_required(["classifier", "admin"])
+@role_required(["classifier", "admin", "head"])
 def route_ticket(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+
+    if ticket.status == "Решена":
+        flash("Маршрутизация недоступна для закрытой заявки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
     form = RouteTicketForm()
 
     # Заполняем для валидации
@@ -77,6 +124,12 @@ def route_ticket(ticket_id):
 @login_required
 @role_required(["classifier", "admin", "head"])
 def reassign_ticket(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+
+    if ticket.status == "Решена":
+        flash("Переназначение недоступно для закрытой заявки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
     form = ReassignTicketForm()
     TicketService.setup_executor_choices(form)
 
@@ -109,3 +162,81 @@ def get_ticket_card(ticket_id):
         "html": html,
         "ticket_id": ticket.id,
     }
+
+
+# Взять заявку в работу (Исполнитель / Начальник отдела)
+@tickets_bp.route("/ticket/<int:ticket_id>/take_in_work", methods=["POST"])
+@login_required
+@role_required(["executor", "head"])
+def take_in_work(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+    result = TicketService.take_in_work(ticket, current_user)
+    if result:
+        flash("Вы взяли заявку в работу.", "success")
+    else:
+        flash(
+            "Невозможно взять заявку в работу. "
+            "Убедитесь, что заявка направлена в ваш отдел и ещё не имеет исполнителей.",
+            "warning",
+        )
+    return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+
+# Запросить проверку у заявителя (Исполнитель / Начальник отдела)
+@tickets_bp.route("/ticket/<int:ticket_id>/request_review", methods=["POST"])
+@login_required
+@role_required(["executor", "head", "classifier"])
+def request_review(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+    if current_user not in ticket.executors:
+        flash("Вы не являетесь исполнителем этой заявки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+    if ticket.status not in ["В работе", "Ожидает ответа"]:
+        flash("Это действие недоступно при текущем статусе заявки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+    TicketService.request_review(ticket, current_user)
+    flash("Запрос на проверку отправлен заявителю.", "success")
+    return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+
+# Заявка не решена — заявитель возвращает заявку в работу
+@tickets_bp.route("/ticket/<int:ticket_id>/not_resolved", methods=["POST"])
+@login_required
+def not_resolved(ticket_id):
+    ticket = TicketService.get_ticket(ticket_id)
+
+    if current_user.id != ticket.applicant_id and current_user.role != "admin":
+        flash("У вас нет прав для этого действия.", "danger")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+    if ticket.status != "Требует проверки":
+        flash("Это действие доступно только когда заявка ожидает проверки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+    TicketService.reject_resolution(ticket, current_user)
+    flash("Заявка возвращена в работу. Исполнители уведомлены.", "success")
+    return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+
+# Назначить заявку в отдел (Классификатор / Администратор)
+@tickets_bp.route("/ticket/<int:ticket_id>/assign_department", methods=["POST"])
+@login_required
+@role_required(["classifier", "admin", "head"])
+def assign_department(ticket_id):
+    department_id = request.form.get("department_id", type=int)
+    if not department_id:
+        flash("Выберите отдел для назначения.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+
+    ticket = TicketService.get_ticket(ticket_id)
+
+    if ticket.status == "Решена":
+        flash("Назначение отдела недоступно для закрытой заявки.", "warning")
+        return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
+    result = TicketService.assign_department(ticket, department_id, current_user)
+    if result:
+        flash("Заявка направлена в отдел.", "success")
+    else:
+        flash("Не удалось назначить отдел.", "danger")
+
+    return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))

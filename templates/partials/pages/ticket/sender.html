@@ -1,0 +1,46 @@
+{# partials/pages/ticket/sender.html #}
+{% from "macros/initials.html" import get_initials %}
+<div class="dropdown-relative">
+    <div id="dropdownTicketSender" aria-haspopup="listbox" aria-expanded="false"
+        class="button button--outline button--sm ticket-param">
+        <div class="ticket-person">
+            <span class="ticket-person__img ticket-person__img--sender">
+                {{ get_initials(ticket.applicant.full_name) }}
+            </span>
+            <p class="ticket-person__label">{{ ticket.applicant.full_name }}</p>
+        </div>
+    </div>
+
+    <div id="dropdownTicketSenderList" class="dropdown dropdown-ticket__person dropdown-ticket__sender"
+        style="display: none;">
+        <div class="dropdown-header">
+            <p class="dropdown-header__title">Заявитель</p>
+        </div>
+
+        <div class="dropdown-list">
+            <div class="ticket-person">
+                <span class="ticket-person__img ticket-person__img--sender">
+                    {{ get_initials(ticket.applicant.full_name) }}
+                </span>
+                <div class="ticket-person__info">
+                    <p class="ticket-person__label">
+                        {{ ticket.applicant.full_name }}
+                    </p>
+                    <p class="ticket-person__post">
+                        {{ ticket.applicant.position }}
+                    </p>
+                    <p class="ticket-person__department icon--16 icon__department--before">
+                        {{ ticket.applicant.department.name if ticket.applicant.department else 'Без
+                        отдела' }}
+                    </p>
+                    <p class="ticket-person__phone icon--16 icon__phone--before">
+                        {{ ticket.applicant.phone or 'Не указан' }}
+                    </p>
+                    <p class="ticket-person__email icon--16 icon__email--before">
+                        {{ ticket.applicant.email }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

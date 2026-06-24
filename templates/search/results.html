@@ -10,50 +10,25 @@
             <p class="content__description">Результаты по запросу "<strong>{{ query_text }}</strong>"</p>
         </div>
 
-        {% if articles_by_category or tickets %}
-
-        {% if articles_by_category %}
-        <div class="content__faqs content__faqs--search">
-            <h2 class="h2">База знаний</h2>
-
-            {% for category_name, articles_list in articles_by_category.items() %}
-            <div class="faqs-group">
-                <h3 class="faqs-group__category h3">{{ category_name }}</h3>
-
-                <div class="faqs-group__list">
-                    {% for article in articles_list %}
-                    <a href="{{ url_for('kb.article', id=article.id) }}" class="faqs-group__item">
-                        <p class="faqs-group__item-title">{{ article.title }}</p>
-                        <time datetime="{{ article.created_at.strftime('%Y-%m-%dT%H:%M:%S') }}"
-                            class="faqs-group__item-date">
-                            {{article.created_at.strftime('%H:%M %d.%m.%Y')}}
-                        </time>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
+        <div class="search-filter">
+            <a href="#" class="button button--sm button--outline" data-type="all">Все <span id="count-all">0</span></a>
+            <a href="#" class="button button--sm button--outline" data-type="tickets">Заявки <span
+                    id="count-tickets">0</span></a>
+            <a href="#" class="button button--sm button--outline" data-type="knowledge">База знаний <span
+                    id="count-knowledge">0</span></a>
         </div>
-        {% endif %}
 
-        {% if tickets %}
-        <div class="content__tickets">
-            <h2 class="h2">Мои заявки</h2>
-
-            <ul class="content__cards">
-                {% for ticket in tickets %}
-                {% include "partials/pages/ticket/card.html" %}
-                {% endfor %}
-            </ul>
+        <div id="search-results" class="search-results">
+            <div id="tickets-container"></div>
+            <div id="knowledge-container"></div>
         </div>
-        {% endif %}
-
-        {% else %}
-        <div class="content__noresults">
-            <p>
-                Не нашлось результатов с таким запросом.
-            </p>
-        </div>
-        {% endif %}
 </section>
+{% endblock %}
+
+{% block script %}
+<script>
+    window.query_text = "{{  query_text }}";
+</script>
+
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 {% endblock %}

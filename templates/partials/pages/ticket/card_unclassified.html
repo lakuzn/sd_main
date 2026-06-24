@@ -1,5 +1,6 @@
-<li class="content__card-item">
-    <a href="{{url_for('tickets.view_ticket', ticket_id=ticket.id) }}" class="content__card">
+<li class="content__card-item" id="ticket-card-{{ticket.id}}">
+    <a href="{{url_for('tickets.view_ticket', ticket_id=ticket.id) }}"
+        class="content__card {% if ticket.status != 'Решена' and ticket.desired_deadline and ticket.desired_deadline | is_past %}content__card--overdue{% elif ticket.status == 'Требует проверки' %}content__card--review{% endif %}">
         <div class="card__header">
             <p class="card__index">№ {{ ticket.id }}</p>
             {% include "partials/pages/ticket/status.html" %}
@@ -14,6 +15,18 @@
             <p class="card__category">
                 Без категории
             </p>
+            {% endif %}
+
+            {% if ticket.status != 'Решена' and ticket.desired_deadline and ticket.desired_deadline | is_past %}
+            <p class="card__overdue">
+                Просрочена
+            </p>
+            {% endif %}
+
+            {% include "partials/pages/ticket/priority.html" %}
+
+            {% if unread_ticket_ids is defined and ticket.id in unread_ticket_ids %}
+            <span class="card__new-message" title="Есть новые сообщения"></span>
             {% endif %}
         </div>
         <p class="card__description">
@@ -45,8 +58,7 @@
     </a>
 
     {% if ticket.status == 'Решена' %}
-    <button type="button" id="buttonUnResolved" value="{{ ticket.id }}" class="button--solid card__reopen"
-        title="Открыть повторно">Открыть
-        повторно</button>
+    <button type="button" data-ticket-id="{{ ticket.id }}" class="button--solid card__reopen js-reopen-card-btn"
+        title="Открыть повторно">Открыть повторно</button>
     {% endif %}
 </li>

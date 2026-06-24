@@ -1,0 +1,9 @@
+{% if tickets %}
+
+{% for ticket in tickets %}
+{% include "partials/pages/ticket/card.html" %}
+{% endfor %}
+
+{% else %}
+<!-- Пустой результат, сообщение показывается через CSS -->
+{% endif %}
