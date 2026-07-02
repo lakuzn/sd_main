@@ -10,7 +10,7 @@ class User(db.Model, UserMixin):
     full_name = db.Column(db.String(100), nullable=False)
     # Почта может отсутствовать у доменной учётки — подставим логин@домен
     email = db.Column(db.String(120), unique=True, nullable=True)
-    phone = db.Column(db.String(20), nullable=True)
+    phone = db.Column(db.String(20), nullable=True, default="Не указан")
     # Доменные (AD) пользователи входят по Kerberos и локального пароля не имеют
     password_hash = db.Column(db.String(255), nullable=True)
     position = db.Column(db.String(100), nullable=True)

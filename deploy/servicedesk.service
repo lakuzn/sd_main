@@ -1,0 +1,44 @@
+# systemd-сервис для ServiceDesk (запускает приложение через gunicorn).
+#
+# Куда положить:  /etc/systemd/system/servicedesk.service
+# Команды:
+#   systemctl daemon-reload
+#   systemctl enable --now servicedesk
+#   systemctl status servicedesk
+#   journalctl -u servicedesk -e        (логи; -f — в реальном времени)
+#
+# Это ОСНОВНОЙ (рекомендуемый) вариант — связь с Apache по TCP 127.0.0.1:8000.
+
+[Unit]
+Description=ServiceDesk (gunicorn)
+# Стартуем после сети, базы и Redis (Redis — общая шина Socket.IO между воркерами)
+After=network-online.target postgresql.service redis.service
+Wants=network-online.target redis.service
+
+[Service]
+Type=simple
+User=servicedesk
+Group=servicedesk
+
+# Каталог, где лежит run.py (и пакет app/). Поправьте под свой путь.
+WorkingDirectory=/opt/servicedesk
+
+# .env с секретами и переменными (SECRET_KEY, DATABASE_URL, REDIS_URL и т.д.).
+EnvironmentFile=/opt/servicedesk/.env
+
+# venv проекта.
+Environment=PATH=/opt/servicedesk/.venv/bin
+
+ExecStart=/opt/servicedesk/.venv/bin/gunicorn -c /opt/servicedesk/deploy/gunicorn.conf.py run:app
+ExecReload=/bin/kill -s HUP $MAINPID
+
+Restart=always
+RestartSec=3
+
+# Логи приложения и gunicorn -> journald (видно в journalctl -u servicedesk).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=servicedesk
+
+[Install]
+WantedBy=multi-user.target

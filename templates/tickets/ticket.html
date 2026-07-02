@@ -16,9 +16,9 @@
 
                     {% include "partials/pages/ticket/status.html" %}
 
-                    <span id="ticketNewMessage" class="card__new-message" title="Есть новые сообщения"
-                        style="display: none;"></span>
-
+                    <!-- <<span id="ticketNewMessage" class="card__new-message" title="Есть новые сообщения"
+                        style="display: none;"></span> -->
+                    >
                     {% set can_edit_full = current_user.role in ['head', 'admin', 'classifier'] and ticket.status !=
                     'Решена' %}
                     {% set can_edit_meta = (can_edit_full or current_user in ticket.executors) and ticket.status !=

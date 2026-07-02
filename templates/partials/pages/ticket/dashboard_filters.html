@@ -43,7 +43,7 @@
             Сбросить
         </button>
 
-        {% if current_user.role in ['classifier', 'head'] %}
+        {% if current_user.role in ['classifier', 'head', 'admin'] %}
         <div class="filters__item filters__export">
             <input type="date" id="exportStart" class="button button--md button--outline" title="Период: с">
             <input type="date" id="exportEnd" class="button button--md button--outline" title="Период: по">
