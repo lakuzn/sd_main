@@ -7,7 +7,9 @@
             <a href="{{ url_for('kb.catalog') }}" class="icon--16 icon__arrowback--before button"
                 title="Вернуться ко всем заявкам"></a>
             <div class="content__info">
-                <h1 id="article_create" class="h1 content__title">Создание статьи для Базы Знаний</h1>
+                <h1 id="article_create" class="h1 content__title">
+                    {{ 'Редактирование статьи' if article else 'Создание статьи для Базы Знаний' }}
+                </h1>
             </div>
         </div>
 
@@ -17,17 +19,19 @@
             <div class="article-form__group">
                 <label class="article-form__label" for="title">Заголовок статьи</label>
                 <input id="title" name="title" placeholder="Введите содержательный заголовок" type="text"
-                    aria-required="true" required class="button button--outline button--md">
+                    aria-required="true" required class="button button--outline button--md"
+                    value="{{ article.title if article else '' }}">
             </div>
 
             <!-- Начало. Категории -->
-            <input type="hidden" name="category_id" id="category_id">
+            <input type="hidden" name="category_id" id="category_id"
+                value="{{ article.category_id if article else '' }}">
 
             <div class="dropdown-relative">
                 <label class="article-form__label">Категория</label>
                 <button id="articleCategory" type="button" aria-haspopup="listbox" aria-expanded="false"
                     aria-label="Выбрать категорию" class="article-category__button button button--md button--outline">
-                    ПО и Доступы
+                    {{ article.category.name if article and article.category else 'ПО и Доступы' }}
                 </button>
 
                 <div class="dropdown dropdown-article__category" style="display: none;">
@@ -37,7 +41,7 @@
             </div>
             <!-- Конец. Категории -->
 
-            <textarea id="hidden-content" name="content" aria-required="true" required style="display: none"></textarea>
+            <textarea id="hidden-content" name="content" aria-required="true" required style="display: none">{{ article.content if article else '' }}</textarea>
 
             <div class="article-form__richtext">
                 <div id="editor-container"></div>
@@ -57,11 +61,12 @@
             <div class="article-form__checkbox">
                 <label class="article-form__label" for="is_staff_only">Только для сотрудников</label>
                 <input id="is_staff_only" name="is_staff_only" type="checkbox"
-                    class="button button--outline button--md">
+                    class="button button--outline button--md"
+                    {{ 'checked' if article and article.is_staff_only else '' }}>
             </div>
 
             <button type="submit" id="submit-btn" class="article-form__button button button--solid button--md">
-                Опубликовать статью
+                {{ 'Сохранить изменения' if article else 'Опубликовать статью' }}
             </button>
         </form>
     </div>

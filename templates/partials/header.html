@@ -11,7 +11,7 @@
             {% if current_user.role != 'user' %}
             <li class="nav__item">
                 <a href="{{ url_for('home') }}"
-                    class="nav__link button icon__list--before icon--16 {% if request.endpoint == ('dashboards.executor' or 'dashboards.classifier' or 'dashboards.head') %} active {% endif %}">
+                    class="nav__link button icon__list--before icon--16 {% if request.endpoint in ['dashboards.executor', 'dashboards.classifier', 'dashboards.head', 'dashboards.admin'] %} active {% endif %}">
                     Очередь заявок
                 </a>
             </li>

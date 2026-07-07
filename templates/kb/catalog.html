@@ -61,10 +61,12 @@
                 Статей не найдено
             </p>
 
+            {% if current_user.role in ['admin', 'head', 'executor', 'classifier'] %}
             <a href="{{ url_for('kb.create_article') }}"
                 class="button button--solid--primary button--md noresults__button">
                 Создать статью
             </a>
+            {% endif %}
         </div>
 
         {% endif %}

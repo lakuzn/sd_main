@@ -37,7 +37,11 @@
                 <div class="account-contacts__item">
                     <p class="account-contacts__label">Телефон</p>
                     <p class="account-contacts__desc">
+                        {%if current_user.phone == none %}
+                        Не указан
+                        {% else %}
                         {{current_user.phone}}
+                        {%endif%}
                     </p>
                 </div>
 
@@ -49,6 +53,17 @@
                 <div class="account-contacts__item">
                     <p class="account-contacts__label">Должность</p>
                     <p class="account-contacts__desc">{{current_user.position}}</p>
+                </div>
+                
+                <div class="account-contacts__item">
+                    <p class="account-contacts__label">Host Name</p>
+                    <p class="account-contacts__desc">
+                    {%if current_user.host_name == none %}
+                    Не указан
+                    {% else %}
+                    {{current_user.host_name}}
+                    {%endif%}
+                    </p>
                 </div>
             </div>
         </div>

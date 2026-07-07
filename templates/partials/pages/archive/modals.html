@@ -1,6 +1,5 @@
 <div id="modalExport" class="modal" style="display: none;">
     <div class="modal__overlay"></div>
-
     <div class="modal__content">
         <div class="modal__header">
             <h3 class="modal__title h3">Экспортировать заявки в Excel</h3>
@@ -9,13 +8,34 @@
                 ⤫
             </button>
         </div>
-        <p class="modal__message">
-            Загрузите все заявки, либо в промежутке дат.
-        </p>
+
+        <div class="modal__body">
+            <p class="modal__message">
+                Выгрузите все заявки или укажите диапазон дат для фильтрации.
+            </p>
+
+            <!-- Поля для диапазона дат -->
+            <div class="modal__fields">
+                <div class="form-group">
+                    <label for="exportStart">Начало периода</label>
+                    <input type="date" id="exportStart" class="modal__input" />
+                </div>
+                <div class="form-group">
+                    <label for="exportEnd">Конец периода</label>
+                    <input type="date" id="exportEnd" class="modal__input" />
+                </div>
+            </div>
+
+            <p class="modal__hint">
+                Если даты не указаны, будут выгружены все заявки.
+            </p>
+        </div>
 
         <div class="modal__actions">
             <button type="button" class="button button--outline button--md modal__cancel">Отмена</button>
-            <button type="button" class="button button--solid--primary button--md modal__confirm">Скачать</button>
+            <button type="button" class="button button--solid--primary button--md modal__confirm">
+                Скачать
+            </button>
         </div>
     </div>
 </div>

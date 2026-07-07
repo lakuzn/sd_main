@@ -27,7 +27,7 @@
                     {% if can_edit_full %}
                     <div class="dropdown-relative">
                         <button id="changeTicketPriorityBtn" aria-haspopup="listbox" aria-expanded="false"
-                            aria-label="Изменить приоритет" class="button ticket__priority">
+                            aria-label="Изменить приоритет" class="button ticket__priority icon--14 icon__more--after">
                             {{ ticket.priority }}
                         </button>
 
@@ -64,6 +64,8 @@
 
                     {% endif %}
 
+                    {# {% include "partials/pages/ticket/history.html" %} #}
+
                 </div>
             </div>
         </div>
@@ -96,8 +98,6 @@
                 <div class="ticket-block ticket-block-time">
                     {% include "partials/pages/ticket/time_block.html" %}
                 </div>
-
-                {% include "partials/pages/ticket/history.html" %}
 
                 {% include "partials/pages/ticket/actions.html" %}
             </div>

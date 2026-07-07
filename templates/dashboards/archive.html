@@ -8,10 +8,9 @@
             <div class="content__info-group">
                 <h1 id="archive" class="h1">Архив заявок</h1>
                 {% if current_user.role in ['classifier', 'head', 'admin'] %}
-                <a id="exportExcel" href="{{ url_for('dashboards.export_report') }}"
-                    class="button button--icon button--sm icon--24 icon__excel--before"
+                <button id="exportExcel" class="button button--icon button--sm icon--24 icon__excel--before"
                     title="Выгрузить заявки в Excel">
-                </a>
+                </button>
                 {% endif %}
             </div>
             <p id="archiveDescription" class="content__description">Просмотрите ваши закрытые заявки</p>

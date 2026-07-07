@@ -5,7 +5,7 @@
     and ticket.status == 'В обработке'
     and current_user.department
     and current_user.department in ticket.departments %}
-    <form method="POST" action="{{ url_for('tickets.take_in_work', ticket_id=ticket.id) }}" style="display: inline;">
+    <form method="POST" action="{{ url_for('tickets.take_in_work', ticket_id=ticket.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="button button--sm button--solid--primary">
             Взять в работу
@@ -14,7 +14,7 @@
     {% endif %}
 
     {% if current_user in ticket.executors and ticket.status in ['В работе', 'Ожидает ответа'] %}
-    <form method="POST" action="{{ url_for('tickets.request_review', ticket_id=ticket.id) }}" style="display: inline;">
+    <form method="POST" action="{{ url_for('tickets.request_review', ticket_id=ticket.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="button button--sm button--solid--primary">
             Запросить проверку у заявителя
@@ -45,8 +45,8 @@
 
     {% endif %}
 
-    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin') and ticket.status == 'Требует
-    проверки' %}
+    {% if (current_user.id == ticket.applicant_id or current_user.role == 'admin')
+    and ticket.status == 'Требует проверки' %}
     <form method="POST" action="{{ url_for('tickets.not_resolved', ticket_id=ticket.id) }}" style="display: inline;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="button button--sm button--solid">
@@ -65,11 +65,11 @@
 
         <div id="dropdownTicketMoreList" class="dropdown dropdown-ticket__more" style="display: none;">
             <div class="dropdown-list">
-                <div class="dropdown-item">
+                <!-- <div class="dropdown-item">
                     <button type="button" id="buttonInvite" class="button button--outline button--sm button--nowrap">
                         Пригласить специалиста
                     </button>
-                </div>
+                </div> -->
 
                 <div class="dropdown-item">
                     <button type="button" id="buttonAddComment"
@@ -91,12 +91,13 @@
     {% endif %}
 </div>
 
-<!-- Появляется, если появились изменения -->
+<!-- Появляется, если есть изменения -->
 <div class="ticket-actions">
     <button id="ticketChangeParams" type="button" class="button button--solid--primary button--sm"
         style="display: none;">
         Применить изменения
     </button>
+
     <button id="ticketChangeParamsCancel" type="button" class="button button--outline button--sm"
         style="display: none;">
         Отменить изменения

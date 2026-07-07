@@ -21,6 +21,21 @@
     </main>
 
     {% include "partials/footer.html" %}
+
+    {#
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="form-login__messages" style="list-style:none;padding:0;margin:0 0 12px;">
+        {% for category, msg in messages %}
+        <li class="form-login__message form-login__message--{{ category }}">
+            {{ msg }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    #}
+
     <a href="#menu" aria-label="Перейти к меню"></a>
 
     {% include "partials/assets/script.html" %}

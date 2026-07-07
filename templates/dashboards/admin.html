@@ -11,25 +11,22 @@
 
         {% include "partials/pages/dashboard/filters.html" %}
 
-        {% if tickets %}
-        <div class="content__wrap">
-            <ul class="content__cards">
-                {% for ticket in tickets %}
-                {% include "partials/pages/ticket/card_unclassified.html" %}
-                {% endfor %}
-            </ul>
+        <div class="dashboard-section">
+            <div class="content__wrap">
+                <ul class="content__cards">
+                    {% for ticket in tickets %}
+                    {% include "partials/pages/ticket/card_unclassified.html" %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% include "partials/pages/ticket/pagination.html" %}
+
+            <div class="noresults" {% if tickets %} style="display: none;" {% endif %}>
+                <p class="noresults__title">
+                    Нет новых заявок
+                </p>
+            </div>
         </div>
-
-        {% include "partials/pages/ticket/pagination.html" %}
-
-        {% else %}
-        <div class="noresults">
-            <p class="noresults__title">
-                Нет новых заявок
-            </p>
-        </div>
-
-        {% endif %}
     </div>
 </section>
 {% endblock %}

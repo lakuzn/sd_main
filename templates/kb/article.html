@@ -20,6 +20,22 @@
 
                 <p class="content__description">{{article.category.name}}</p>
             </div>
+
+            {% if can_edit %}
+            <div class="content__actions article__actions">
+                <a href="{{ url_for('kb.edit_article', id=article.id) }}"
+                    class="button button--outline button--sm">
+                    Изменить
+                </a>
+                <form method="POST" action="{{ url_for('kb.delete_article', id=article.id) }}"
+                    onsubmit="return confirm('Удалить статью безвозвратно?');" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="button button--outline button--sm">
+                        Удалить
+                    </button>
+                </form>
+            </div>
+            {% endif %}
         </div>
         <div class="article-form__richtext">
             <div class="ql-editor">

@@ -76,8 +76,7 @@
                         class="ticket__group-textarea button button--md button--outline">
 
                     <small class="ticket__group-description">
-                        Host name компьютера, с которым возникла проблема,
-                        поможет классификатору найти связанные заявки.
+                        Поможет техподдержке найти связанные заявки.
                     </small>
                 </div>
                 <!-- Конец. Host Name -->
@@ -90,7 +89,7 @@
                         class="ticket__group-textarea button button--md button--outline">
 
                     <small class="ticket__group-description">
-                        Необязательно. Поможет исполнителю понять срочность.
+                        Поможет техподдержке понять срочность.
                     </small>
                 </div>
                 <!-- Конец. Дедлайн -->
@@ -118,7 +117,7 @@
 
 {% block script %}
 <script>
-    // Запрещаем выбирать уже прошедшую дату в качестве дедлайна
+    // Дата: запрещаем выбирать прошедшую дату и по умолчанию подставляем сегодня
     (function () {
         var deadlineInput = document.getElementById('desired_deadline');
         if (deadlineInput) {
@@ -126,7 +125,12 @@
             var yyyy = today.getFullYear();
             var mm = String(today.getMonth() + 1).padStart(2, '0');
             var dd = String(today.getDate()).padStart(2, '0');
-            deadlineInput.min = yyyy + '-' + mm + '-' + dd;
+            var todayStr = yyyy + '-' + mm + '-' + dd;
+            deadlineInput.min = todayStr;
+            // Автоматически проставляем сегодняшнюю дату (если поле ещё пустое)
+            if (!deadlineInput.value) {
+                deadlineInput.value = todayStr;
+            }
         }
     })();
 
