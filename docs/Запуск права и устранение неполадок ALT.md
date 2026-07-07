@@ -63,7 +63,7 @@ chmod 640 /opt/servicedesk/.env
    
 ### Права на keytab и сертификаты
 ```bash
-chown root:apache2 /etc/httpd2/servicedesk.  keytab && chmod 640 /etc/httpd2/servicedesk.keytab
+chown root:apache2 /etc/httpd2/servicedesk.keytab && chmod 640 /etc/httpd2/servicedesk.keytab
 chown root:root /etc/ssl/servicedesk/* && chmod 600 /etc/ssl/servicedesk/servicedesk.key && chmod 644 /etc/ssl/servicedesk/*.crt
 ```
 
@@ -128,15 +128,6 @@ ProxyPassReverse / http://127.0.0.1:8000/
 
 ---
 
-Если возникает ошибка с AuthType, добавляем в конец файла etc/httpd2/httpd2.conf: 
-----------------------------------------------------------------
-LoadModule authn_core_module modules/mod_authn_core.so
-LoadModule authn_file_module modules/mod_authn_file.so
-LoadModule authz_core_module modules/mod_authz_core.so
-LoadModule authz_user_module modules/mod_authz_user.so
-LoadModule auth_basic_module modules/mod_auth_basic.so
-# LoadModule auth_digest_module modules/mod_auth_digest.so
-----------------------------------------------------------------
 ## 5. Запуск по слоям + проверка (диагностируем снизу вверх)
 
 Проверяйте по очереди — так сразу видно, на каком слое поломка.
