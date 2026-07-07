@@ -6,8 +6,6 @@ from flask import abort
 
 
 def role_required(roles):
-    """Декоратор RBAC"""
-
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):

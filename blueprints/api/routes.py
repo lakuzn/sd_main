@@ -14,7 +14,6 @@ from app.utils.decorators import role_required
 @api_bp.route("/users/all", methods=["GET"])
 @login_required
 def get_all_users():
-    """Получение всех пользователей с ролью 'user' для фильтра заявителей"""
     query = User.query.filter_by(is_active=True)
 
     users = query.order_by(User.full_name).all()
@@ -34,7 +33,7 @@ def get_all_users():
     )
 
 
-# Поиск пользователей (для создания заявки от имени другого пользователя)
+# Поиск пользователей для создания заявки от имени другого пользователя
 @api_bp.route("/users/search", methods=["GET"])
 @login_required
 @role_required(["classifier", "head", "executor", "admin"])
@@ -68,7 +67,7 @@ def search_users():
     )
 
 
-# Опции фильтров дашборда (отделы и исполнители) с учётом роли
+# Опции фильтров дашборда (отделы и исполнители)
 @api_bp.route("/dashboard/filter-options", methods=["GET"])
 @login_required
 @role_required(["classifier", "executor", "head", "admin"])
@@ -137,8 +136,6 @@ def api_ticket_reply(ticket_id):
             400,
         )
 
-    # Классификатор может писать в чат только пока заявка у него
-    # (статус Новая/В обработке), ИЛИ если он также является исполнителем
     if current_user.role == "classifier":
         is_executor = current_user in ticket.executors
         if not is_executor and ticket.status not in ["Новая", "В обработке"]:
@@ -152,8 +149,6 @@ def api_ticket_reply(ticket_id):
                 403,
             )
 
-    # Исполнитель пишет в чат только по своим заявкам (где он назначен) или по
-    # собственному обращению. На заявки коллег по отделу — только просмотр.
     if (
         current_user.role == "executor"
         and current_user.id != ticket.applicant_id
@@ -186,7 +181,6 @@ def api_ticket_reply(ticket_id):
 def api_ticket_change_status(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
-    # Менять статус можно только у заявки, к которой есть доступ
     if not TicketService.can_access_ticket(ticket, current_user):
         return (
             jsonify({"status": "error", "message": "У вас нет доступа к этой заявке"}),
@@ -216,13 +210,13 @@ def api_ticket_change_status(ticket_id):
     old_status = ticket.status
     TicketService.change_status(ticket, new_status, current_user)
 
-    # Уведомления только если статус действительно изменился
     if old_status != new_status:
         if new_status == "Решена":
             NotificationService.create_notification(
                 user_id=ticket.applicant_id,
                 message=f"Ваша заявка №{ticket.id} закрыта.",
                 ticket_id=ticket.id,
+                important=True,
             )
         elif new_status == "В обработке":
             NotificationService.create_notification(
@@ -252,8 +246,6 @@ def api_ticket_change_status(ticket_id):
 def api_clone_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
-    # Похожую заявку может создать сам заявитель, а также классификатор /
-    # начальник / админ (например, из архива — с сохранением всех полей)
     if current_user.id != ticket.applicant_id and current_user.role not in [
         "classifier",
         "head",
@@ -276,7 +268,7 @@ def api_clone_ticket(ticket_id):
     )
 
 
-# Мягкое удаление заявки (скрывается от пользователей, остаётся в БД)
+# Удаление заявки (остаётся в БД)
 @api_bp.route("/ticket/<int:ticket_id>/delete", methods=["POST"])
 @login_required
 def api_delete_ticket(ticket_id):
@@ -309,7 +301,7 @@ def read_all_notifications():
     return jsonify({"success": True})
 
 
-# Отправка комментария через socketio
+# Отправка комментария
 @api_bp.route("/ticket/<int:ticket_id>/internal_comment", methods=["POST"])
 @login_required
 @role_required(["executor", "classifier", "admin", "head"])
@@ -334,8 +326,6 @@ def api_comment_reply(ticket_id):
             400,
         )
 
-    # Классификатор может добавлять комментарии пока заявка у него
-    # ИЛИ если он также является исполнителем
     if current_user.role == "classifier":
         is_executor = current_user in ticket.executors
         if not is_executor and ticket.status not in ["Новая", "В обработке"]:
@@ -383,7 +373,6 @@ def api_resolve_ticket(ticket_id):
     if not success:
         return jsonify({"status": "error", "message": result}), 403
 
-    # Смена статуса уже разослана сокетом (ticket_status_changed) внутри resolve_ticket
     return jsonify({"status": "success"})
 
 
@@ -401,8 +390,6 @@ def change_ticket_params(ticket_id):
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    # Классификатор может корректировать параметры заявки на любом этапе
-    # (нельзя только в закрытой заявке)
     if ticket.status == "Решена":
         return (
             jsonify({"error": "Нельзя изменять параметры закрытой заявки"}),
@@ -410,7 +397,6 @@ def change_ticket_params(ticket_id):
         )
 
     # Исполнитель может менять только Host Name и номер документа
-    # (например, когда машина не включается и host name заранее неизвестен)
     if current_user.role == "executor":
         if current_user not in ticket.executors:
             return (
@@ -422,6 +408,22 @@ def change_ticket_params(ticket_id):
         if not data:
             return (
                 jsonify({"error": "Недоступные для изменения поля"}),
+                403,
+            )
+
+    if current_user.role == "head" and "executor_ids" in data:
+        allowed_ids = {
+            u.id for u in TicketService.get_assignable_executors(current_user)
+        }
+        submitted_ids = [v for v in (data.get("executor_ids") or []) if isinstance(v, int)]
+        if any(v not in allowed_ids for v in submitted_ids):
+            return (
+                jsonify(
+                    {
+                        "error": "Можно назначать только исполнителей своего отдела "
+                        "и его подотделов"
+                    }
+                ),
                 403,
             )
 
@@ -478,19 +480,17 @@ def get_categories():
     )
 
 
-# API для фильтрации архива (возвращает JSON с HTML карточек и счётчиками)
+# API для фильтрации архива
 @api_bp.route("/archive/tickets")
 @login_required
 def api_archive_tickets():
     """API для получения архива заявок с фильтрацией"""
     filter_type = request.args.get("type", "all")
 
-    # Получаем данные архива
     data = ArchiveService.get_archive_data(
         current_user.id, current_user.role, filter_type
     )
 
-    # Рендерим HTML для карточек
     tickets_html = render_template(
         "partials/pages/archive/ticket_list.html", tickets=data["tickets"]
     )

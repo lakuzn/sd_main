@@ -4,12 +4,6 @@ from datetime import datetime
 
 
 def _active_scope_query(user):
-    """Базовый запрос активных (не решённых) заявок для дашборда роли.
-
-    Возвращает незавершённый Query без сортировки — единый источник правды
-    о том, какие заявки видит роль на своём дашборде. Используется и для
-    обычной выдачи, и для серверной фильтрации.
-    """
     query = Ticket.query.filter(
         Ticket.status != "Решена",
         Ticket.is_deleted == False,
@@ -32,8 +26,8 @@ def _active_scope_query(user):
             )
         )
     elif role == "admin":
-        pass  # администратор видит все активные заявки
-    else:  # обычный пользователь
+        pass
+    else:  
         query = query.filter(
             or_(
                 Ticket.applicant_id == user.id,
@@ -44,7 +38,6 @@ def _active_scope_query(user):
 
 
 def _overdue_first():
-    """Выражение для сортировки: просроченные активные заявки идут первыми."""
     today_start = datetime.combine(datetime.now().date(), datetime.min.time())
     return case(
         (
@@ -60,7 +53,6 @@ def _overdue_first():
 
 
 def _review_first():
-    """Выражение для сортировки: заявки, требующие проверки заявителем, закрепляются вверху."""
     return case((Ticket.status == "Требует проверки", 0), else_=1)
 
 
@@ -68,11 +60,6 @@ class DashboardService:
 
     @staticmethod
     def get_user_data(user_id, page=1, per_page=18):
-        """Дашборд пользователя"""
-
-        # Активные заявки, где человек является заявителем, а для сотрудников —
-        # ещё и заявки, где он назначен исполнителем.
-        # Заявки «Требует проверки» закрепляются вверху — их нужно проверить заявителю.
         pagination = (
             Ticket.query.filter(
                 or_(
@@ -98,9 +85,6 @@ class DashboardService:
 
     @staticmethod
     def get_executor_data(user_id):
-        """Дашборд агента"""
-
-        # Заявки своего отдела + назначенные лично (см. _active_scope_query)
         user = User.query.get(user_id)
         tickets = (
             _active_scope_query(user)
@@ -117,7 +101,6 @@ class DashboardService:
 
     @staticmethod
     def get_head_data(user_id):
-        """Дашборд начальника отдела: все активные заявки в его отделе + лично на нём"""
         user = User.query.get(user_id)
 
         tickets = (
@@ -135,11 +118,6 @@ class DashboardService:
 
     @staticmethod
     def get_classifier_data(user_id, page=1, per_page=18):
-        """Дашборд классификатора (первая линия ТП).
-
-        Видит все активные заявки своего отдела (для контроля и переклассификации),
-        а также новые, ещё не распределённые ни в один отдел — их нужно классифицировать.
-        """
         user = User.query.get(user_id)
 
         pagination = (
@@ -160,7 +138,6 @@ class DashboardService:
 
     @staticmethod
     def get_admin_data():
-        """Дашборд администратора: все активные заявки в системе."""
         tickets = (
             Ticket.query.filter(
                 Ticket.status != "Решена",
@@ -190,7 +167,6 @@ class DashboardService:
         applicant_id=None,
         host_name=None,
     ):
-        """Серверная фильтрация активного дашборда роли (для бесшовных фильтров)."""
         query = _active_scope_query(user)
 
         if category_id:
@@ -215,7 +191,6 @@ class DashboardService:
 
     @staticmethod
     def get_filter_options(user):
-        """Опции для фильтров дашборда (категории и исполнители) с учётом роли."""
         categories = []
         executors = []
 
@@ -253,18 +228,12 @@ class DashboardService:
 
     @staticmethod
     def export_report(user, start_date=None, end_date=None):
-        """Формирует Excel-отчёт по заявкам за период.
-
-        Классификатор/админ выгружают все заявки, начальник — заявки своего отдела.
-        Возвращает BytesIO с .xlsx.
-        """
         from io import BytesIO
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment
 
         query = Ticket.query.filter(Ticket.is_deleted == False)
 
-        # Начальник отдела ограничен своим отделом
         if user.role == "head":
             query = query.filter(Ticket.departments.any(id=user.department_id))
 
@@ -312,12 +281,10 @@ class DashboardService:
                 ]
             )
 
-        # Автоширина колонок
         widths = [6, 26, 30, 18, 26, 16, 8, 30]
         for i, w in enumerate(widths, start=1):
             ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
-        # === Итоговая статистика ===
         resolved = [t for t in tickets if t.status == "Решена"]
         unresolved = [t for t in tickets if t.status != "Решена"]
 
@@ -330,7 +297,6 @@ class DashboardService:
         ws.append(["Решено", len(resolved)])
         ws.append(["Не решено", len(unresolved)])
 
-        # По категориям
         ws.append([])
         ws.cell(row=ws.max_row + 1, column=1, value="Заявок по категориям").font = bold
         cat_counts = {}
@@ -343,7 +309,6 @@ class DashboardService:
         for name, cnt in sorted(cat_counts.items()):
             ws.append([name, cnt])
 
-        # По исполнителям (решено / не решено)
         ws.append([])
         ws.cell(
             row=ws.max_row + 1, column=1, value="По исполнителям (решено / не решено)"

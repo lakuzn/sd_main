@@ -72,7 +72,7 @@ def admin():
     )
 
 
-# Бесшовная фильтрация дашборда (возвращает готовую разметку карточек)
+# Фильтрация дашборда
 @dashboards_bp.route("/filter")
 @login_required
 @role_required(["classifier", "executor", "head", "admin"])
@@ -100,7 +100,7 @@ def filter_dashboard():
     return {"html": html, "count": len(data["tickets"])}
 
 
-# Выгрузка заявок в Excel (Классификатор / Начальник отдела / Админ)
+# Выгрузка заявок
 @dashboards_bp.route("/export")
 @login_required
 @role_required(["classifier", "head", "admin"])
@@ -113,10 +113,13 @@ def export_report():
         if start_s:
             start_date = datetime.strptime(start_s, "%Y-%m-%d")
         if end_s:
-            # Конец периода включительно — берём следующий день и используем «<»
             end_date = datetime.strptime(end_s, "%Y-%m-%d") + timedelta(days=1)
     except ValueError:
         flash("Некорректный формат даты периода.", "warning")
+        return redirect(url_for("home"))
+
+    if start_date and end_date and start_date >= end_date:
+        flash("Дата начала должна быть раньше даты окончания.", "warning")
         return redirect(url_for("home"))
 
     try:
@@ -134,7 +137,7 @@ def export_report():
         stream,
         as_attachment=True,
         download_name=filename,
-        mimetype=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 

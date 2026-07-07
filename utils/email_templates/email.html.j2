@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f2f4f7; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f7; padding:24px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+                    style="width:560px; max-width:92%; background-color:#ffffff; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb;">
+                    <tr>
+                        <td style="background-color:#1d4ed8; padding:20px 28px;">
+                            <p style="margin:0; font-size:18px; font-weight:bold; color:#ffffff;">ServiceDesk</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:28px;">
+                            <p style="margin:0 0 12px; font-size:16px; font-weight:bold; color:#111827;">
+                                Уведомление по заявке
+                            </p>
+                            <p style="margin:0 0 20px; font-size:15px; line-height:1.5; color:#374151;">
+                                {{ message }}
+                            </p>
+
+                            {% if ticket_url %}
+                            <table role="presentation" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="border-radius:8px; background-color:#1d4ed8;">
+                                        <a href="{{ ticket_url }}"
+                                            style="display:inline-block; padding:11px 22px; font-size:14px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:8px;">
+                                            Открыть заявку
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 28px; border-top:1px solid #e5e7eb;">
+                            <p style="margin:0; font-size:12px; color:#9ca3af;">
+                                Это автоматическое сообщение системы технической поддержки.
+                                Отвечать на него не нужно.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

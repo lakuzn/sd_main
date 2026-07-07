@@ -8,7 +8,6 @@ class LoginForm(FlaskForm):
         "Почта",
         validators=[
             DataRequired(message="Введите адрес почты"),
-            # Email(message="Введите корректный адрес почты. Пример: example@polyot.ru"),
         ],
     )
 

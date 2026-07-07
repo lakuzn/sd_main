@@ -21,8 +21,6 @@ def handle_join_ticket(data):
 
     join_room(str(ticket_id))
 
-    # Сотрудники дополнительно подписываются на служебную комнату — в неё
-    # приходят внутренние комментарии, которые заявитель видеть не должен.
     if current_user.role != "user":
         join_room(f"ticket_staff_{ticket_id}")
 
@@ -31,11 +29,5 @@ def handle_join_ticket(data):
 
 @socketio.on("join_user_room")
 def handle_join_user_room():
-    """Подписывает пользователя на его личную комнату уведомлений.
-
-    Без этого уведомления (NotificationService шлёт их в комнату
-    "user_<id>") не доходили бы в реальном времени — только после
-    перезагрузки страницы.
-    """
     if current_user.is_authenticated:
         join_room(f"user_{current_user.id}")

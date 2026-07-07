@@ -1,15 +1,3 @@
-"""Интеграция с Active Directory (выгрузка пользователей по LDAP).
-
-Сюда вынесена вся работа с каталогом AD. Библиотека ldap3 импортируется
-ЛЕНИВО внутри методов — так приложение спокойно запускается даже там, где
-ldap3 не установлен (например, на машине разработчика без домена), а ошибка
-возникнет только при реальной попытке синхронизации.
-
-Самый важный метод — AdService.sync_users(): он подключается к контроллеру
-домена, читает всех пользователей и сохраняет/обновляет их в нашей базе.
-Его вызывает как первичная выгрузка, так и ночной скрипт sync_ad_users.py.
-"""
-
 from datetime import datetime
 from flask import current_app
 from app.extensions import db
@@ -17,8 +5,6 @@ from app.models import User, Department
 
 
 class AdService:
-
-    # --- Атрибуты AD, которые мы запрашиваем у каталога ---
     ATTRIBUTES = [
         "sAMAccountName",     # логин (username)
         "userPrincipalName",  # логин вида user@company.local
@@ -34,14 +20,8 @@ class AdService:
         "objectGUID",         # стабильный идентификатор учётки
         "memberOf",           # группы (для назначения ролей)
     ]
-
-    # ------------------------------------------------------------------ #
-    #  Подключение к каталогу
-    # ------------------------------------------------------------------ #
     @staticmethod
     def _get_connection():
-        """Создаёт и возвращает подключение к LDAP (ldap3.Connection)."""
-        # Ленивый импорт: ldap3 нужен только в момент реальной синхронизации
         from ldap3 import Server, Connection, ALL, NTLM, SIMPLE
 
         cfg = current_app.config
@@ -62,20 +42,14 @@ class AdService:
         )
         return conn
 
-    # ------------------------------------------------------------------ #
-    #  Чтение пользователей из AD
-    # ------------------------------------------------------------------ #
     @staticmethod
     def fetch_users():
-        """Возвращает список пользователей из AD в виде словарей."""
         from ldap3 import SUBTREE
 
         cfg = current_app.config
         conn = AdService._get_connection()
 
         users = []
-        # Постраничный поиск (paged_search) — чтобы не упереться в лимит
-        # сервера (обычно AD отдаёт максимум 1000 записей за раз).
         entries = conn.extend.standard.paged_search(
             search_base=cfg["AD_BASE_DN"],
             search_filter=cfg["AD_USER_FILTER"],
@@ -98,10 +72,7 @@ class AdService:
 
     @staticmethod
     def _parse_entry(attrs):
-        """Превращает «сырые» атрибуты LDAP в удобный словарь."""
-
         def one(value):
-            # LDAP-атрибуты часто приходят списками — берём первый элемент
             if isinstance(value, (list, tuple)):
                 return value[0] if value else None
             return value
@@ -117,7 +88,6 @@ class AdService:
         cfg = current_app.config
         mail = one(attrs.get("mail"))
         if not mail:
-            # запасная почта вида login@company.local
             mail = f"{username}@{cfg['AD_DOMAIN_FQDN']}"
 
         full_name = (
@@ -129,7 +99,6 @@ class AdService:
             or username
         )
 
-        # userAccountControl: бит 0x2 (ACCOUNTDISABLE) — учётка отключена
         try:
             uac = int(one(attrs.get("userAccountControl")) or 0)
         except (TypeError, ValueError):
@@ -152,25 +121,18 @@ class AdService:
             "member_of": [str(g) for g in member_of],
         }
 
-    # ------------------------------------------------------------------ #
-    #  Вспомогательное: роли по группам, отделы
-    # ------------------------------------------------------------------ #
     @staticmethod
     def _role_from_groups(member_of):
-        """Определяет роль по членству в группах AD (по карте из конфига)."""
         raw_map = current_app.config.get("AD_GROUP_ROLE_MAP", "") or ""
         if not raw_map:
             return None
 
-        # Карта вида "Group-A=classifier;Group-B=executor"
-        mapping = {}
+	mapping = {}
         for pair in raw_map.split(";"):
             if "=" in pair:
                 cn, role = pair.split("=", 1)
                 mapping[cn.strip().lower()] = role.strip()
 
-        # В memberOf приходят полные DN: "CN=Group-A,OU=...,DC=...".
-        # Берём CN (первый компонент) и сравниваем с картой.
         for dn in member_of:
             cn = dn.split(",")[0].replace("CN=", "").replace("cn=", "").strip().lower()
             if cn in mapping:
@@ -179,12 +141,6 @@ class AdService:
 
     @staticmethod
     def _get_or_create_department(name):
-        """Находит отдел по имени или создаёт новый.
-
-        Сопоставление по точному имени: AD отдаёт название отдела стабильной
-        строкой, а регистронезависимое сравнение через SQL lower() ненадёжно
-        для кириллицы (зависит от СУБД).
-        """
         name = (name or "").strip()
         if not name:
             return None
@@ -195,23 +151,8 @@ class AdService:
             db.session.flush()
         return dept
 
-    # ------------------------------------------------------------------ #
-    #  Главный метод: синхронизация
-    # ------------------------------------------------------------------ #
     @staticmethod
     def sync_users(deactivate_missing=True):
-        """Выгружает пользователей из AD и сохраняет/обновляет их в нашей БД.
-
-        Логика:
-        - находим существующего пользователя по ad_guid (надёжнее всего),
-          иначе по username, иначе по email;
-        - новых создаём, существующих обновляем;
-        - роли существующих пользователей НЕ перезаписываем (их могли
-          назначить вручную в приложении); роль ставим только новым;
-        - отключённых/исчезнувших из AD помечаем неактивными, но не удаляем.
-
-        Возвращает словарь со статистикой.
-        """
         ad_users = AdService.fetch_users()
 
         default_role = current_app.config.get("AD_DEFAULT_ROLE", "user")
@@ -252,7 +193,6 @@ class AdService:
                 db.session.add(user)
                 stats["created"] += 1
             else:
-                # Обновляем данные (роль не трогаем — могла быть выставлена вручную)
                 user.username = data["username"] or user.username
                 user.ad_guid = data["ad_guid"] or user.ad_guid
                 user.email = data["email"] or user.email
@@ -265,8 +205,6 @@ class AdService:
                 user.last_sync_at = now
                 stats["updated"] += 1
 
-        # Учётки, которые раньше пришли из AD (есть ad_guid), но в этой
-        # выгрузке отсутствуют — помечаем неактивными (уволены/удалены).
         if deactivate_missing and seen_guids:
             stale = User.query.filter(
                 User.ad_guid.isnot(None),

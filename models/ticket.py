@@ -59,35 +59,27 @@ class Ticket(db.Model):
 
     status = db.Column(db.String(50), default="Новая", nullable=False)
 
-    # Приоритет теперь может быть пустым при создании (его ставит Классификатор)
     priority = db.Column(db.String(20), default="Без приоритета", nullable=True)
 
-    # Для классификатора, номер документа (служебной записки, приказа)
     document_number = db.Column(db.String(100), nullable=True)
 
-    # Host name компьютера, с которым возникла проблема (необязательно).
-    # Заполняется заявителем или классификатором, используется для поиска
-    # всех заявок по конкретной машине.
     host_name = db.Column(db.String(255), nullable=True)
 
-    # Сроки
     desired_deadline = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-
-    # Время последнего сообщения в чате (для индикатора новых сообщений на карточке)
     last_message_at = db.Column(db.DateTime, nullable=True)
 
-    # Мягкое удаление (заявка скрывается от пользователей, но остаётся в БД)
+    # Мягкое удаление
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
-    # Внешние ключи (кто создал и на кого назначена)
+    # Внешние ключи
     applicant_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
     classifier_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=True
-    )  # Кто классифицировал
+    )
 
     # СВЯЗИ
     applicant = db.relationship(

@@ -3,8 +3,6 @@ from sqlalchemy import and_
 
 
 class ArchiveCategory:
-    """Класс для представления категории фильтрации"""
-
     def __init__(self, key: str, label: str, query_filter=None):
         self.key = key
         self.label = label
@@ -12,21 +10,16 @@ class ArchiveCategory:
 
 
 class ArchiveService:
-    """Сервис для работы с архивными заявками"""
-
     @staticmethod
     def _my_tickets_filter(user: User):
-        """Фильтр для моих обращений"""
         return Ticket.applicant_id == user.id
 
     @staticmethod
     def _executor_tickets_filter(user: User):
-        """Фильтр для заявок, где я исполнитель"""
         return and_(Ticket.executors.any(id=user.id), Ticket.applicant_id != user.id)
 
     @staticmethod
     def _department_tickets_filter(user: User):
-        """Фильтр для заявок отдела (для head и executor)"""
         if not user.department_id:
             return False
         return and_(
@@ -37,7 +30,6 @@ class ArchiveService:
 
     @staticmethod
     def _other_tickets_filter(user: User, role: str):
-        """Фильтр для других заявок (для classifier/admin)"""
         if role == "admin":
             return and_(
                 Ticket.applicant_id != user.id, ~Ticket.executors.any(id=user.id)
@@ -52,7 +44,6 @@ class ArchiveService:
 
     @staticmethod
     def get_categories_for_role(role: str, user: User):
-        """Возвращает список доступных категорий для роли"""
         if role == "user":
             return [
                 ArchiveCategory(
@@ -60,7 +51,6 @@ class ArchiveService:
                 )
             ]
 
-        # Базовые категории для всех ролей, кроме user
         categories = [
             ArchiveCategory("my", "Мои обращения", ArchiveService._my_tickets_filter),
             ArchiveCategory(
@@ -68,7 +58,6 @@ class ArchiveService:
             ),
         ]
 
-        # Дополнительные категории в зависимости от роли
         if role in ("classifier", "head"):
             categories.append(
                 ArchiveCategory(
@@ -86,7 +75,6 @@ class ArchiveService:
                 )
             )
         elif role == "executor":
-            # Исполнитель тоже видит заявки отдела по ТЗ
             categories.append(
                 ArchiveCategory(
                     "department",
@@ -95,27 +83,11 @@ class ArchiveService:
                 )
             )
 
-        # Добавляем категорию 'all' в начало для удобства
         categories.insert(0, ArchiveCategory("all", "Все", None))
         return categories
 
     @staticmethod
     def get_archive_data(user_id: int, role: str, filter_type: str = "all"):
-        """
-        Получение данных архива с учётом роли и фильтра
-
-        Args:
-            user_id: ID пользователя
-            role: роль пользователя
-            filter_type: тип фильтра ('all', 'my', 'executor', 'department', 'other')
-
-        Returns:
-            dict: {
-                'tickets': list,  # список тикетов для текущего фильтра
-                'counts': dict,   # счётчики по всем категориям
-                'current_filter': str  # текущий тип фильтра
-            }
-        """
         user = User.query.get(user_id)
         if not user:
             return {"tickets": [], "counts": {}, "current_filter": filter_type}
@@ -124,10 +96,7 @@ class ArchiveService:
             Ticket.status == "Решена", Ticket.is_deleted == False
         )
 
-        # Получаем доступные категории для роли
         categories = ArchiveService.get_categories_for_role(role, user)
-
-        # Вычисляем счётчики для всех категорий
         counts = {}
         for cat in categories:
             if cat.key != "all" and cat.query_filter:
@@ -138,16 +107,13 @@ class ArchiveService:
             elif cat.key == "all":
                 counts["all"] = 0
 
-        # Считаем общее количество для 'all'
         if "all" in counts:
             counts["all"] = sum(
                 counts.get(cat.key, 0) for cat in categories if cat.key != "all"
             )
 
-        # Получаем список тикетов для запрошенного фильтра
         tickets = []
         if filter_type == "all":
-            # Объединяем тикеты из всех категорий, исключая дубликаты
             tickets_set = {}
             for cat in categories:
                 if cat.key != "all" and cat.query_filter:
@@ -159,10 +125,8 @@ class ArchiveService:
                         continue
 
             tickets = list(tickets_set.values())
-            # Сортируем по дате обновления (новые сверху)
             tickets.sort(key=lambda t: t.updated_at, reverse=True)
         else:
-            # Ищем категорию с нужным ключом
             target_category = next(
                 (cat for cat in categories if cat.key == filter_type), None
             )

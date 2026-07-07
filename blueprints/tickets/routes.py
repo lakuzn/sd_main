@@ -6,51 +6,53 @@ from app.models import User
 from app.services.ticket_service import TicketService
 from app.utils.decorators import role_required
 from app.utils.forms import flash_form_errors
+from app.utils.network import resolve_hostname, get_client_ip
+from datetime import date, datetime
 
 
 # Создание новой заявки
 @tickets_bp.route("/new_ticket", methods=["GET", "POST"])
 @login_required
 def new_ticket():
-    from datetime import date, datetime
-
     form = TicketForm()
 
+    if request.method == "GET":
+        TicketService.update_user_hostname(current_user)
+
     if form.validate_on_submit():
-        # Проверка: нельзя создать уже просроченную заявку
-        if form.desired_deadline.data and form.desired_deadline.data < date.today():
-            flash("Нельзя создать заявку с уже истёкшим сроком.", "warning")
+        is_valid, error = TicketService.validate_ticket_data(form.desired_deadline.data)
+        if not is_valid:
+            flash(error, "warning")
             return render_template("tickets/new_ticket.html", form=form)
 
-        # Классификатор / исполнитель / начальник может создать заявку от имени
-        # другого пользователя (например, если обращение поступило по телефону)
-        applicant_id = current_user.id
         on_behalf_of = request.form.get("on_behalf_of", type=int)
-        if on_behalf_of and current_user.role in [
-            "classifier",
-            "executor",
-            "head",
-            "admin",
-        ]:
-            target = User.query.get(on_behalf_of)
-            if target:
-                applicant_id = target.id
-
-        TicketService.create_ticket(
-            applicant_id=applicant_id,
-            description=form.description.data.strip(),
-            attachments=request.files.getlist("attachments"),
-            desired_deadline=form.desired_deadline.data,
-            host_name=(request.form.get("host_name") or "").strip(),
+        applicant_id, error = TicketService.determine_applicant(
+            current_user, on_behalf_of
         )
+        if error:
+            flash(error, "warning")
+            return render_template("tickets/new_ticket.html", form=form)
 
-        flash("Заявка успешно создана.", "success")
-        return redirect(url_for("dashboards.user"))
+        # Создание заявки
+        try:
+            TicketService.create_ticket(
+                applicant_id=applicant_id,
+                description=form.description.data.strip(),
+                attachments=request.files.getlist("attachments"),
+                desired_deadline=form.desired_deadline.data,
+                host_name=(request.form.get("host_name") or "").strip(),
+            )
+            flash("Заявка успешно создана.", "success")
+            return redirect(url_for("dashboards.user"))
 
-    return render_template(
-        "tickets/new_ticket.html",
-        form=form,
-    )
+        except ValueError as e:
+            flash(str(e), "warning")
+            return render_template("tickets/new_ticket.html", form=form)
+        except Exception as e:
+            flash("Произошла ошибка при создании заявки. Попробуйте позже.", "danger")
+            return render_template("tickets/new_ticket.html", form=form)
+
+    return render_template("tickets/new_ticket.html", form=form)
 
 
 # Просмотр конкретной заявки
@@ -59,27 +61,24 @@ def new_ticket():
 def view_ticket(ticket_id):
     ticket = TicketService.get_ticket(ticket_id)
 
-    # Скрытые (удалённые) заявки видит только admin
     if ticket.is_deleted and current_user.role != "admin":
         abort(404)
 
-    # Проверка прав доступа к заявке
     if not TicketService.can_access_ticket(ticket, current_user):
         abort(403)
 
-    # Запоминаем, что пользователь открыл заявку (гасим индикатор новых сообщений)
     TicketService.mark_ticket_viewed(ticket_id, current_user.id)
 
     form = None
 
     if current_user.role in ["classifier", "admin", "head"]:
         form = RouteTicketForm()
-        TicketService.setup_route_form(form)
+        TicketService.setup_route_form(form, current_user)
 
     context = TicketService.get_ticket_context(ticket_id, current_user, form)
 
     reassign_form = ReassignTicketForm()
-    TicketService.setup_executor_choices(reassign_form)
+    TicketService.setup_executor_choices(reassign_form, current_user)
     reassign_form.executor_ids.data = [ex.id for ex in context["ticket"].executors]
 
     context["reassign_form"] = reassign_form
@@ -90,7 +89,7 @@ def view_ticket(ticket_id):
     )
 
 
-# Маршрутизация заявки (Классификатор)
+# Маршрутизация заявки
 @tickets_bp.route("/ticket/<int:ticket_id>/route", methods=["POST"])
 @login_required
 @role_required(["classifier", "admin", "head"])
@@ -103,8 +102,7 @@ def route_ticket(ticket_id):
 
     form = RouteTicketForm()
 
-    # Заполняем для валидации
-    TicketService.setup_route_form(form)
+    TicketService.setup_route_form(form, current_user)
 
     if form.validate_on_submit():
         TicketService.route_ticket_action(ticket_id, form, current_user)
@@ -126,7 +124,7 @@ def reassign_ticket(ticket_id):
         return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
 
     form = ReassignTicketForm()
-    TicketService.setup_executor_choices(form)
+    TicketService.setup_executor_choices(form, current_user)
 
     if form.validate_on_submit():
         TicketService.reassign_ticket(
@@ -159,7 +157,7 @@ def get_ticket_card(ticket_id):
     }
 
 
-# Взять заявку в работу (Исполнитель / Начальник отдела)
+# Взять заявку в работу
 @tickets_bp.route("/ticket/<int:ticket_id>/take_in_work", methods=["POST"])
 @login_required
 @role_required(["executor", "head"])
@@ -177,7 +175,7 @@ def take_in_work(ticket_id):
     return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
 
 
-# Запросить проверку у заявителя (Исполнитель / Начальник отдела)
+# Запросить проверку у заявителя
 @tickets_bp.route("/ticket/<int:ticket_id>/request_review", methods=["POST"])
 @login_required
 @role_required(["executor", "head", "classifier"])
@@ -194,7 +192,7 @@ def request_review(ticket_id):
     return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
 
 
-# Заявка не решена — заявитель возвращает заявку в работу
+# Вернуть заявку в работу
 @tickets_bp.route("/ticket/<int:ticket_id>/not_resolved", methods=["POST"])
 @login_required
 def not_resolved(ticket_id):
@@ -213,7 +211,7 @@ def not_resolved(ticket_id):
     return redirect(url_for("tickets.view_ticket", ticket_id=ticket_id))
 
 
-# Назначить заявку в отдел (Классификатор / Администратор)
+# Назначить заявку в отдел
 @tickets_bp.route("/ticket/<int:ticket_id>/assign_department", methods=["POST"])
 @login_required
 @role_required(["classifier", "admin", "head"])

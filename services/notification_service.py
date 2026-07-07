@@ -1,12 +1,14 @@
+from flask import url_for
+
 from app.extensions import db, socketio  # Если socketio настроен
 from app.models.notification import Notification
+from app.models.user import User
 
 
 class NotificationService:
 
     @staticmethod
-    def create_notification(user_id, message, ticket_id=None):
-        """Создает уведомление в БД и сразу отправляет его через веб-сокеты"""
+    def create_notification(user_id, message, ticket_id=None, important=False):
         notification = Notification(
             user_id=user_id, message=message, ticket_id=ticket_id
         )
@@ -14,27 +16,53 @@ class NotificationService:
 
         db.session.commit()
 
-        # Если у вас всё еще работает SocketIO, сразу пушим уведомление юзеру:
+        payload = notification.to_dict()
+        payload["important"] = important
         socketio.emit(
             "new_notification",
-            notification.to_dict(),
-            room=f"user_{user_id}",  # Отправляем в персональную комнату юзера
+            payload,
+            room=f"user_{user_id}",
         )
+
+        if important:
+            NotificationService._send_email(user_id, message, ticket_id)
+
         return notification
 
     @staticmethod
-    def notify_many(user_ids, message, ticket_id=None):
-        """Шлёт одно и то же уведомление нескольким пользователям.
+    def _send_email(user_id, message, ticket_id):
+        from app.services.email_service import EmailService
 
-        Принимает любой перебираемый набор id (список/множество), отбрасывает
-        пустые значения и дубли — чтобы один человек не получил уведомление дважды.
-        """
+        if not EmailService.is_enabled():
+            return
+
+        user = User.query.get(user_id)
+        if not user or not user.email:
+            return
+
+        ticket_url = None
+        if ticket_id:
+            try:
+                ticket_url = url_for(
+                    "tickets.view_ticket", ticket_id=ticket_id, _external=True
+                )
+            except Exception:
+                ticket_url = None
+
+        EmailService.send_notification_email(
+            recipient=user.email,
+            subject=f"ServiceDesk: {message}",
+            message=message,
+            ticket_url=ticket_url,
+        )
+
+    @staticmethod
+    def notify_many(user_ids, message, ticket_id=None, important=False):
         for uid in {u for u in user_ids if u}:
-            NotificationService.create_notification(uid, message, ticket_id)
+            NotificationService.create_notification(uid, message, ticket_id, important)
 
     @staticmethod
     def get_unread_for_user(user_id):
-        """Получает все непрочитанные уведомления пользователя"""
         return (
             Notification.query.filter_by(user_id=user_id, is_read=False)
             .order_by(Notification.created_at.desc())
@@ -43,7 +71,6 @@ class NotificationService:
 
     @staticmethod
     def mark_as_read(notification_id, user_id):
-        """Помечает уведомление как прочитанное"""
         notification = Notification.query.filter_by(
             id=notification_id, user_id=user_id
         ).first()
@@ -55,8 +82,6 @@ class NotificationService:
 
     @staticmethod
     def mark_all_as_read(user_id):
-        """Помечает все уведомления юзера как прочитанные (кнопка
-        'Прочитать всё')"""
         Notification.query.filter_by(user_id=user_id, is_read=False).update(
             {"is_read": True}
         )

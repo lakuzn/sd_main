@@ -7,7 +7,6 @@ class ArticleForm(FlaskForm):
     title = StringField("Заголовок статьи", validators=[DataRequired()])
     category_id = SelectField("Категория", coerce=int, validators=[DataRequired()])
 
-    # Это поле мы с помощью JS превратим в Word-редактор
     content = TextAreaField("Текст статьи", validators=[DataRequired()])
 
     is_staff_only = BooleanField("Только для сотрудников (скрыть от пользователей)")
