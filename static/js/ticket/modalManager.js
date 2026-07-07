@@ -41,6 +41,13 @@ export function showConfirmModal({ title, message, confirmText, cancelText, onCo
         onConfirm?.();
         closeModal();
     });
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeModal();
+        }
+    });
 }
 
 /**
@@ -127,6 +134,13 @@ export function showInviteModal(ticketId) {
             confirmButton.textContent = 'Пригласить';
         }
     });
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeModal();
+        }
+    });
 }
 
 /**
@@ -154,4 +168,11 @@ export function showAddCommentModal() {
     closeBtn?.addEventListener('click', closeModal);
 
     initComments(); // инициализируем логику отправки комментариев
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeModal();
+        }
+    });
 }

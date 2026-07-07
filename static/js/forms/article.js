@@ -14,12 +14,19 @@ function initArticleCategoryDropdown(buttonId, listId, categoriesData, onChange)
         name: cat.name
     }));
 
+    // При редактировании статьи в скрытом поле #category_id уже стоит её
+    // категория — стартуем с неё, иначе берём первую в списке.
+    const categoryIdInput = document.getElementById('category_id');
+    const preselectedId = categoryIdInput && categoryIdInput.value
+        ? parseInt(categoryIdInput.value)
+        : null;
+
     const dropdown = createDropdown({
         button: button,
         list: list,
         options: options,
         placeholder: 'Выберите категорию',
-        initialValue: options[0]?.id,
+        initialValue: preselectedId || options[0]?.id,
         returnObject: true,
         wrapperClass: 'dropdown',
         listItemClass: 'dropdown-item',
@@ -32,7 +39,6 @@ function initArticleCategoryDropdown(buttonId, listId, categoriesData, onChange)
 
     // Устанавливаем начальное значение в скрытое поле
     const initialValue = dropdown.getValue();
-    const categoryIdInput = document.getElementById('category_id');
     if (categoryIdInput && initialValue) {
         categoryIdInput.value = initialValue.id;
     }

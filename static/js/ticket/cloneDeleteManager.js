@@ -38,6 +38,13 @@ export function initDeleteTicket() {
             }
         });
     }
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeModal();
+        }
+    });
 }
 
 /**

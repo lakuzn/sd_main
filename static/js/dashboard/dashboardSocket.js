@@ -6,9 +6,12 @@ export function initSocketDashboard() {
 
     socket.on('connect', () => {
         socket.emit('join_dashboard');
+        // console.log(socket.emit('join_dashboard'));
     });
 
     socket.on('ticket_created', (data) => {
+        // console.log('ticket_created: ', data);
+        // console.log(socket.on('ticket_created'));
         const ticket = data.ticket;
         if (isRelevantForCurrentDashboard(ticket)) {
             addTicketCard(ticket);
@@ -73,9 +76,14 @@ async function addTicketCard(ticket) {
         const response = await fetch(`/tickets/card/${ticket.id}`);
         const data = await response.json();
 
-        const container = document.querySelector('.content__cards');
+        const container = document.querySelector('.dashboard-section');
+
         if (container) {
-            container.insertAdjacentHTML('afterbegin', data.html);
+            const noResult = container.querySelector('.noresults');
+            if (noResult) noResult.remove();
+
+            const containerCards = document.querySelector('.content__cards');
+            containerCards.insertAdjacentHTML('afterbegin', data.html);
             reorderCards();
         }
     } catch (e) {
@@ -90,19 +98,41 @@ function updateOrRemoveTicketCard(ticket, oldStatus) {
     if (card) {
         if (!shouldBeVisible) {
             card.remove();
+            checkNoResults();
         } else {
             const statusEl = card.querySelector('.ticket__status');
             if (statusEl) statusEl.textContent = ticket.status;
 
             const cardLink = card.querySelector('.content__card');
-            if (cardLink) {
-                cardLink.classList.toggle('content__card--review', ticket.status === 'Требует проверки');
-            }
+            if (cardLink)
+                cardLink.classList.toggle('content__card--review',
+                    ticket.status === 'Требует проверки');
+
             reorderCards();
         }
     } else if (shouldBeVisible) {
         addTicketCard(ticket);
     }
+}
+
+function checkNoResults() {
+    container = document.querySelector('.dashboard-section');
+    if (!container) return;
+
+    const hasCards = container.querySelector('[id^="ticket-card-"]');
+    const hasNoResultsBlock = container.querySelector('.noresults');
+
+    if (!hasCards && !hasNoResultsBlock) {
+        const noResultsBlock = `
+            <div class="noresults">
+                <p class="noresults__title">
+                    Нет новых заявок
+                </p>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', noResultsBlock);
+    } else if (hasCards && hasNoResultsBlock) hasNoResultsBlock.remove();
 }
 
 function reorderCards() {

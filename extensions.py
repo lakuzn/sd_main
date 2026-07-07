@@ -1,4 +1,8 @@
-# Цетральное место всех расширений
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -11,8 +15,14 @@ migrate = Migrate()
 login_manager = LoginManager()
 csrf_token = CSRFProtect()
 
+
+_redis_url = os.environ.get("REDIS_URL") or None
+
 socketio = SocketIO(
     cors_allowed_origins="*",
+    async_mode="gevent",
+    logger=True,
+    engineio_logger=True,
 )
 
 
@@ -23,6 +33,6 @@ def init_extensions(app):
     csrf_token.init_app(app)
     socketio.init_app(app)
 
-    login_manager.login_view = "auth.login"
+    login_manager.login_view = "auth.sso"
     login_manager.login_message = "Пожалуйста, авторизуйтесь для доступа к системе."
     login_manager.login_message_category = "info"

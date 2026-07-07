@@ -12,3 +12,8 @@ Pillow
 openpyxl
 ldap3
 gunicorn
+gevent
+gevent-websocket
+redis
+psycogreen
+setuptools

@@ -2,12 +2,16 @@
 import { getCSRFToken, escapeHtml } from '../common/utils.js';
 import { initDropdownToggle } from '../common/dropdown.js';
 import { fetchReadNotifications } from '../api/api.js';
+import { initDesktopNotifications, showDesktopNotification } from './desktopNotifications.js';
 
 export function initDropdownNotification() {
     const button = document.getElementById('dropdownNotificationsButton');
     const dropdownMenu = document.getElementById('dropdownNotificationsList');
 
     if (!button || !dropdownMenu) return;
+
+    // Разрешение на десктоп-уведомления (Центр уведомлений Windows)
+    initDesktopNotifications();
 
     // Используем универсальный дропдаун
     const dropdown = initDropdownToggle('dropdownNotificationsButton', 'dropdownNotificationsList');
@@ -87,6 +91,8 @@ export function initDropdownNotification() {
 
         notifSocket.on('new_notification', (data) => {
             addNotificationToDropdown(data);
+            // Важные уведомления дублируем на рабочий стол (Windows/браузер)
+            showDesktopNotification(data);
         });
     }
 

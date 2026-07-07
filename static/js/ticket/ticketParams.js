@@ -59,6 +59,23 @@ export async function initTicketParams() {
         // 4. Загружаем опции с сервера
         const options = await fetchTicketParamsOptions();
         if (options) {
+        
+    	    const allowedDeptIds = ['220', '222', '223', '226']
+            options.departments = options.departments
+                .filter(dept => allowedDeptIds.includes(String(dept.id)))
+                .map(dept => {
+                    let parsedName = dept.name;
+                    const parts = dept.name.split('.');
+
+                    if (parts.length >=3 ) {
+                        parsedName = parts[2].substring(0, 4);
+                    }
+                    return {
+                        ...dept,
+                        name:parsedName || dept.name
+                    };
+                });
+        
             // 5. Приоритет (редактируемый дропдаун)
             priorityDropdown = initPriorityDropdown({
                 buttonId: 'changeTicketPriorityBtn',
